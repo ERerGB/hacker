@@ -46,6 +46,21 @@ and a training loop (epoch → diagnose → mutate → repeat).
 
 ## Quick Start
 
+### 0. Lock Execution Isolation (Required)
+
+Treat each evaluation run as a fresh runtime process.
+
+- Keep one **controller** session for loop control only (score, diagnose, mutate, accept/rollback).
+- Run every test case with an isolated **worker** (fresh sub-agent/process).
+- Worker input is limited to:
+  - current prompt version,
+  - current skill set,
+  - one test case input,
+  - fixed output schema.
+- Do **not** reuse controller chat/session context for worker inference.
+
+Why: this prevents context leakage from being mistaken as prompt improvement.
+
 ### 1. Define Your Corpus
 
 Create 6-8 test cases that represent the full range of inputs your prompt
@@ -78,7 +93,8 @@ Don't optimize upfront. The breeder will grow it.
 
 Each iteration follows this exact sequence:
 
-**Step 1: Run Epoch** — Test current prompt against ALL corpus entries. Score each.
+**Step 1: Run Epoch** — For EACH corpus entry, spawn a fresh worker and run inference.
+Collect outputs for ALL corpus entries, then score each.
 
 **Step 2: Diagnose** — Find the lowest-scoring test case. Ask: WHY did the
 prompt fail here? Map the failure to a mutation type.
@@ -185,6 +201,12 @@ Track all state in a single scratchpad file. Recommended format:
 If using with Cursor's Ralph Loop, set up the scratchpad at
 `.cursor/ralph/scratchpad.md` and include the evolution log inline.
 The loop's automatic re-invocation drives the epoch cycle.
+
+Recommended role split:
+
+- **Ralph/controller turn**: chooses mutation, keeps history, computes scores.
+- **Worker runs**: execute prompt+skills on transcript cases in isolated fresh runtime.
+- **Rule**: no worker may inherit prior worker conversation memory.
 
 ## Research Protocol
 

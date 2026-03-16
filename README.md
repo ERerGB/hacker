@@ -31,6 +31,16 @@ Each iteration: **run → score → diagnose → mutate → re-run → accept or
 
 No guessing. Every change is traced to a specific failure on a specific test case.
 
+## Runtime Isolation (Required)
+
+Hacker optimizes the **prompt+skills runtime**, not chat memory carry-over.
+
+- Use one controller session for optimization logic.
+- Execute each test case in a fresh worker runtime (for example, sub-agent).
+- Do not reuse prior session context between worker runs.
+
+This keeps results reproducible and prevents false gains from context leakage.
+
 ## How It Works
 
 ### 5 Stages of Evolution
