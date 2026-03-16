@@ -1,0 +1,20 @@
+{
+  "name": "hacker",
+  "version": "0.1.0",
+  "description": "Evolutionary prompt optimization — breed better LLM prompts through corpus-evaluated epochs, failure diagnosis, and targeted mutations instead of guesswork.",
+  "author": "ERerGB",
+  "license": "MIT",
+  "permissions": [],
+  "entry": "SKILL.md",
+  "tags": [
+    "prompt-engineering",
+    "optimization",
+    "evolution",
+    "testing",
+    "prompt-breeding",
+    "genetic-algorithm",
+    "agent-framework"
+  ],
+  "models": ["claude-*", "gpt-*", "gemini-*"],
+  "minOpenClawVersion": "0.8.0"
+}
