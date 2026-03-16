@@ -14,36 +14,71 @@ Manual prompt engineering is:
 ## The Solution
 
 ```
-Test Corpus (fixed)       Prompt (evolving)      Golden Labels (fixed)
-      ↓                        ↓                       ↓
-   [ epoch run ]  →  outputs  →  [ score ]  →  fitness
-                                                   ↓
-                                          [ failure diagnosis ]
-                                                   ↓
-                                          [ targeted mutation ]
-                                                   ↓
-                                          [ re-run full epoch ]
-                                                   ↓
-                                     accept (better) / rollback
+Test Corpus (fixed)          Prompt (evolving)           Golden Labels (fixed)
+      ↓                             ↓                           ↓
+[dispatch N isolated workers] → N raw worker outputs → [controller scoring]
+                                                             ↓
+                                                    [failure diagnosis]
+                                                             ↓
+                                                   [one targeted mutation]
+                                                             ↓
+                                                      [re-dispatch epoch]
+                                                             ↓
+                                                   accept / rollback
 ```
 
 Each iteration: **run → score → diagnose → mutate → re-run → accept or rollback.**
 
 No guessing. Every change is traced to a specific failure on a specific test case.
 
-## Runtime Isolation (Required)
+## Protocol-First Quick Start
 
-Hacker optimizes the **prompt+skills runtime**, not chat memory carry-over.
+### 0. Invariant (Read First)
 
-- Use one controller session for optimization logic.
-- Execute each test case in a fresh worker runtime (for example, sub-agent).
-- Do not reuse prior session context between worker runs.
+Violation of any invariant invalidates the epoch.
 
-This keeps results reproducible and prevents false gains from context leakage.
+- Each test case runs in an isolated worker context.
+- Controller never generates model outputs; it only scores worker outputs.
+- Workers cannot see golden labels, other test cases, or prior worker context.
+- One mutation per iteration.
 
-## How It Works
+### 1. Dispatch (Run Isolated Workers)
 
-### 5 Stages of Evolution
+For each test case, dispatch one isolated worker with:
+
+- Prompt under test (verbatim)
+- One test input only
+- Fixed output schema
+
+### 2. Verify (Isolation Checklist)
+
+Before scoring/diagnosis, confirm:
+
+- All cases used fresh workers
+- Workers did not receive golden labels
+- Workers did not receive other case inputs
+- Controller only scored outputs
+
+If any check fails, the epoch is invalid.
+
+### 3. Score -> Diagnose -> Mutate -> Re-run
+
+1. Score worker outputs against golden labels.
+2. Diagnose the worst case.
+3. Apply one targeted mutation.
+4. Re-run full epoch.
+5. Accept only if overall score improves and no single case drops > 1.5.
+
+### 4. Define Corpus and Scoring
+
+- Use 6-8 diverse test cases.
+- Include at least 2 negative cases.
+- Score on 2-4 weighted dimensions.
+- Use `references/corpus-format.md` for structure and output schema.
+
+## How It Works (Reference Layer)
+
+### 5 Stages (Gates)
 
 | Stage | Focus | Gate |
 |-------|-------|------|
@@ -55,7 +90,9 @@ This keeps results reproducible and prevents false gains from context leakage.
 
 Advance only when scores are stable (2 consecutive epochs within ±0.5).
 
-### 9 Mutation Operators
+See `references/stages.md` for full gate details.
+
+### 9 Mutation Operators (Menu)
 
 Instead of randomly rewriting, pick from a targeted menu:
 
@@ -70,6 +107,8 @@ Instead of randomly rewriting, pick from a targeted menu:
 | M7 | Split | One rule doing two things |
 | M8 | Merge | Two rules saying the same thing |
 | M9 | Delete | No measurable effect (Stage 5 only) |
+
+See `references/mutations.md` for usage rules and constraints.
 
 ### Built-in Overfitting Prevention
 
@@ -116,6 +155,8 @@ hacker/
 ├── claw.json                   # ClawHub manifest
 ├── references/
 │   ├── corpus-format.md        # How to structure test cases
+│   ├── stages.md               # Stage goals and gates
+│   ├── mutations.md            # Mutation operator reference
 │   └── extensions.md           # 5 optional advanced features
 ├── examples/
 │   └── classifier.md           # Worked example: sentiment classifier

@@ -48,6 +48,35 @@ Each file follows this structure:
 5. **At least 1 needle-in-haystack** — long input with one subtle valid output
 6. **Diversity over volume** — 8 varied cases beat 20 similar ones
 
+## Worker Output Schema (Required)
+
+Workers must return structured output so the controller can score deterministically.
+
+```json
+{
+  "decision": "output",
+  "outputs": [
+    {
+      "type": "classification|extraction|action",
+      "segment_ref": "optional reference to input segment",
+      "content": "actual output content"
+    }
+  ]
+}
+```
+
+For no-output cases:
+
+```json
+{"decision":"no_output","outputs":[]}
+```
+
+Notes:
+
+- Workers do not score.
+- Workers do not read golden labels.
+- Controller compares worker outputs to golden labels.
+
 ## Scoring a Single Output
 
 Compare each output against golden labels:

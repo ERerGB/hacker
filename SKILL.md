@@ -20,58 +20,78 @@ allowed-tools: Read Write Shell WebSearch Grep
 Evolve any LLM prompt through data-driven iteration instead of guesswork.
 
 ```
-Test Corpus (fixed)       Prompt (evolving)      Golden Labels (fixed)
-      ↓                        ↓                       ↓
-   [ epoch run ]  →  outputs  →  [ score ]  →  fitness
-                                                   ↓
-                                          [ failure diagnosis ]
-                                                   ↓
-                                          [ targeted mutation ]
-                                                   ↓
-                                          [ re-run full epoch ]
-                                                   ↓
-                                     accept (better) / rollback
+Test Corpus (fixed)          Prompt (evolving)           Golden Labels (fixed)
+      ↓                             ↓                           ↓
+[dispatch N isolated workers] → N raw worker outputs → [controller scoring]
+                                                             ↓
+                                                    [failure diagnosis]
+                                                             ↓
+                                                   [one targeted mutation]
+                                                             ↓
+                                                      [re-dispatch epoch]
+                                                             ↓
+                                                   accept / rollback
 ```
 
 The idea is simple: treat prompt engineering like training a model.
 You need a dataset (test corpus), a loss function (scoring rubric),
 and a training loop (epoch → diagnose → mutate → repeat).
 
-## When to Use This
+## Protocol-First Quick Start
 
-- A prompt works on your demo example but fails on edge cases
-- You've been tweaking a prompt for hours with diminishing returns
-- You need evidence that version A is better than version B
-- You want to find the minimal prompt that still performs well
+### 0. Invariant (Read First)
 
-## Quick Start
+Violation of any invariant invalidates the epoch.
 
-### 0. Lock Execution Isolation (Required)
+- **INVARIANT**: each test case must run in an isolated worker context.
+- **INVARIANT**: controller never generates model outputs; it only scores worker outputs.
+- **INVARIANT**: workers must not see golden labels, other test cases, or prior worker context.
+- **INVARIANT**: one mutation per iteration.
 
-Treat each evaluation run as a fresh runtime process.
+### 1. Dispatch (Run Isolated Workers)
 
-- Keep one **controller** session for loop control only (score, diagnose, mutate, accept/rollback).
-- Run every test case with an isolated **worker** (fresh sub-agent/process).
-- Worker input is limited to:
-  - current prompt version,
-  - current skill set,
-  - one test case input,
-  - fixed output schema.
-- Do **not** reuse controller chat/session context for worker inference.
+For each corpus entry, run one isolated worker.
 
-Why: this prevents context leakage from being mistaken as prompt improvement.
+Use this exact worker dispatch shape:
 
-### 1. Define Your Corpus
+```markdown
+You are a worker evaluator. Do not score and do not explain.
+
+## Prompt Under Test
+{prompt_version_verbatim}
+
+## Input
+{single_test_case_input}
+
+## Output Schema
+{fixed_worker_output_schema}
+
+Return ONLY schema-compliant output.
+If prompt indicates no action, return:
+{"decision":"no_output","outputs":[]}
+```
+
+### 2. Verify (Isolation Checklist)
+
+Before moving to scoring and diagnosis:
+
+- [ ] each case was run in a fresh worker
+- [ ] workers did not receive golden labels
+- [ ] workers did not receive other test cases
+- [ ] controller only scored worker outputs (no inline generation)
+
+If any item is unchecked: epoch is invalid, re-run correctly.
+
+### 3. Prepare Corpus and Scoring
 
 Create 6-8 test cases that represent the full range of inputs your prompt
 will see in production. Each test case has an input and expected output.
 
-See [references/corpus-format.md](references/corpus-format.md) for the format.
+**Read [references/corpus-format.md](references/corpus-format.md) now**
+before creating your corpus.
 
 Key: include at least 2 "negative" cases where the correct output is
 "do nothing" or "reject." These prevent false-positive overfitting.
-
-### 2. Define Your Scoring
 
 Pick 2-4 dimensions that matter for your use case. Examples:
 
@@ -84,92 +104,47 @@ Pick 2-4 dimensions that matter for your use case. Examples:
 
 Each dimension scores 0-10. Assign weights that reflect your priorities.
 
-### 3. Start with a Seed Prompt
+### 4. Start with a Seed Prompt
 
 Write the simplest possible prompt that captures your intent — 2-3 sentences.
 Don't optimize upfront. The breeder will grow it.
 
-### 4. Run the Loop
+### 5. Score, Diagnose, Mutate, Re-run
 
 Each iteration follows this exact sequence:
 
-**Step 1: Run Epoch** — For EACH corpus entry, spawn a fresh worker and run inference.
-Collect outputs for ALL corpus entries, then score each.
+**Step 1: Collect and Score** — Compare each worker output against golden labels.
 
-**Step 2: Diagnose** — Find the lowest-scoring test case. Ask: WHY did the
-prompt fail here? Map the failure to a mutation type.
+**Step 2: Diagnose** — Find the worst-scoring test and identify root cause.
 
-**Step 3: Mutate** — Apply exactly ONE change from the mutation menu.
-Never change multiple things at once.
+**Step 3: Mutate** — Apply exactly one mutation.
 
-**Step 4: Re-run Epoch** — Test the mutated prompt against ALL corpus entries.
-If overall score improved and no single test case dropped >1.5 points: accept.
-Otherwise: rollback.
+**Step 4: Re-run Full Epoch** — Re-dispatch all tests, then compare score profile.
 
-**Step 5: Check Stability** — If 2 consecutive epochs score within ±0.5:
-current stage is complete. Advance to next stage.
+Accept only if:
 
-## Evolution Stages
+- overall score improves, and
+- no single case drops > 1.5.
 
-Each stage has a clear goal. Only advance when stable.
+Otherwise rollback.
 
-### Stage 1: Can It See? (Recall)
+### Platform Hints for Isolation
 
-The prompt correctly identifies inputs that need action.
-Start here. Simplest seed prompt. No fancy instructions.
+| Platform | Isolation strategy |
+|----------|--------------------|
+| Cursor | Spawn one `Task` sub-agent per test case |
+| Claude Code | Spawn one subagent per test case with fresh context |
+| Codex | Run one isolated process per case (no shared state) |
 
-**Gate**: Recall ≥ 7.0 across all test cases, Precision ≥ 5.0.
+See [references/stages.md](references/stages.md) for stage goals and gates.
+See [references/mutations.md](references/mutations.md) for mutation operators.
 
-### Stage 2: Does It Filter? (Precision)
+## When to Use This
 
-Eliminate false positives without losing recall.
-Add negative examples and boundary conditions.
-
-**Gate**: Precision ≥ 7.0, Recall stays ≥ 6.5.
-
-### Stage 3: Is the Output Good? (Quality)
-
-Output content meets your quality bar.
-Add format instructions, examples, and quality standards.
-
-**Gate**: Quality ≥ 7.5, other scores maintained.
-
-### Stage 4: Edge Cases
-
-Test against adversarial and unusual inputs.
-Add handling for ambiguous cases, missing data, conflicting signals.
-
-**Gate**: No test case scores below 5.0 on any dimension.
-
-### Stage 5: Pruning
-
-Remove instructions that don't affect scores.
-Delete one instruction at a time. Re-run epoch. Keep deletion if scores hold.
-
-This stage almost always makes the prompt shorter AND better.
-
-**Gate**: Prompt is ≤80% of its Stage 4 length with equal or better scores.
-
-## Mutation Menu
-
-When diagnosis identifies a failure, pick the most targeted fix:
-
-| ID | Mutation | When to use |
-|----|----------|-------------|
-| M1 | Add constraint | False positives: "X does NOT count as Y" |
-| M2 | Remove constraint | Missed recall: over-filtering |
-| M3 | Add positive example | Prompt doesn't recognize a valid pattern |
-| M4 | Add negative example | Prompt triggers on wrong patterns |
-| M5 | Rephrase instruction | Ambiguous wording causing inconsistency |
-| M6 | Reorder instructions | Important rule buried too deep in prompt |
-| M7 | Split instruction | One rule trying to do two things |
-| M8 | Merge instructions | Two rules saying the same thing differently |
-| M9 | Delete instruction | Instruction has no measurable effect |
-
-**Rules**:
-- Apply exactly one mutation per iteration
-- Never use M9 before Stage 5
-- Always record what you changed and why
+- A prompt works on your demo example but fails on edge cases
+- You've been tweaking a prompt for hours with diminishing returns
+- You need evidence that version A is better than version B
+- You want to find the minimal prompt that still performs well
 
 ## State Tracking
 
@@ -185,11 +160,18 @@ Track all state in a single scratchpad file. Recommended format:
 
 ### Stage 1: Can It See?
 - v1 (seed): "Classify whether the input contains..."
-  - Epoch 1: [T1:6, T2:7, T3:4, T4:8, T5:5, T6:7] avg=6.17
-  - Diagnosis: T3 — missed subtle case (no explicit keyword)
+  - Worker outputs:
+    - T1: {"decision":"output","outputs":[...]}
+    - T2: {"decision":"output","outputs":[...]}
+    - T3: {"decision":"output","outputs":[...]}  # wrong vs golden
+  - Epoch 1 scores: [T1:6, T2:7, T3:4, T4:8, T5:5, T6:7] avg=6.17
+  - Isolation check: PASS
+  - Diagnosis: T3 — missed subtle case
   - Mutation: M3 — added example of implicit pattern
 - v2: [updated prompt]
-  - Epoch 2: [T1:7, T2:7, T3:7, T4:8, T5:6, T6:7] avg=7.00 ✓ STABLE
+  - Worker outputs: ...
+  - Epoch 2 scores: [T1:7, T2:7, T3:7, T4:8, T5:6, T6:7] avg=7.00 ✓ STABLE
+  - Isolation check: PASS
   - → Advance to Stage 2
 
 ## Current Prompt (v5)
@@ -202,11 +184,16 @@ If using with Cursor's Ralph Loop, set up the scratchpad at
 `.cursor/ralph/scratchpad.md` and include the evolution log inline.
 The loop's automatic re-invocation drives the epoch cycle.
 
-Recommended role split:
+### One Ralph Iteration with Hacker
 
-- **Ralph/controller turn**: chooses mutation, keeps history, computes scores.
-- **Worker runs**: execute prompt+skills on transcript cases in isolated fresh runtime.
-- **Rule**: no worker may inherit prior worker conversation memory.
+1. Read scratchpad (stage, prompt version, previous scores).
+2. Dispatch N isolated workers (one per test case).
+3. Collect raw worker outputs.
+4. Score outputs against golden labels.
+5. Run isolation verification checklist.
+6. Diagnose worst failure.
+7. Apply one mutation.
+8. Update scratchpad; next iteration re-runs full epoch.
 
 ## Research Protocol
 
