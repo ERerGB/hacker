@@ -1,6 +1,9 @@
-# Mutation Menu
+# Mutation Menu (Default Profile Example)
 
-Apply exactly one mutation per iteration.
+> This is an **example** set of mutation operators, not a fixed menu.
+> Define your own operators in project config. See [config-schema.ts](config-schema.ts) for the interface.
+
+Apply exactly one mutation per cycle.
 
 | ID | Mutation | Use when |
 |----|----------|----------|

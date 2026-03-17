@@ -1,4 +1,7 @@
-# Evolution Stages
+# Evolution Stages (Default Profile Example)
+
+> This is an **example** stage configuration, not a core protocol requirement.
+> Copy and adapt for your project. See [config-schema.ts](config-schema.ts) for the interface.
 
 Use stages as **gates**, not as narrative docs. Stay on a stage until stable.
 

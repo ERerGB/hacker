@@ -1,134 +1,220 @@
 ---
 name: hacker
 description: >
-  Evolutionary prompt optimization via corpus-evaluated epochs.
-  Breeds LLM prompts by running them against a test corpus, scoring outputs
-  against golden labels, diagnosing failures, and applying targeted mutations.
-  Use when you need to systematically improve any LLM prompt — classifiers,
-  extractors, agents, system prompts — beyond what manual tweaking achieves.
+  Evidence-driven prompt and agent evolution engine.
+  Runs candidates against a test corpus, scores outputs, diagnoses failures,
+  explores external evidence, and applies targeted single-variable mutations.
+  Use when you need to systematically improve any LLM prompt or agent
+  configuration beyond what manual tweaking achieves.
 license: MIT
 metadata:
   author: ERerGB
-  version: "0.1.0"
-  tags: prompt-evolution, optimization, breeding, testing
+  version: "0.2.0"
+  tags: prompt-evolution, optimization, breeding, testing, evidence-driven
 compatibility: Cursor, Claude Code, Codex
 allowed-tools: Read Write Shell WebSearch Grep
 ---
 
 # Hacker
 
-Evolve any LLM prompt through data-driven iteration instead of guesswork.
+Evolve any LLM prompt or agent configuration through evidence-driven iteration.
 
 ```
-Test Corpus (fixed)          Prompt (evolving)           Golden Labels (fixed)
-      ↓                             ↓                           ↓
-[dispatch N isolated workers] → N raw worker outputs → [controller scoring]
-                                                             ↓
-                                                    [failure diagnosis]
-                                                             ↓
-                                                   [one targeted mutation]
-                                                             ↓
-                                                      [re-dispatch epoch]
-                                                             ↓
-                                                   accept / rollback
+Corpus (fixed)       Candidate (evolving)       Golden Labels (fixed)
+      ↓                      ↓                         ↓
+  [Run] ──▶ isolated outputs ──▶ [Score] ──▶ [Diagnose]
+    ▲                                             │
+    │                                             ▼
+ [Re-run] ◀── [Mutate] ◀── [Select] ◀── [Explore]
+    │
+ accept / rollback
 ```
 
-The idea is simple: treat prompt engineering like training a model.
-You need a dataset (test corpus), a loss function (scoring rubric),
-and a training loop (epoch → diagnose → mutate → repeat).
+Core idea: treat prompt engineering like training a model.
+You need a dataset (corpus), a loss function (scoring), a training loop
+(run → score → diagnose → explore → select → mutate → re-run),
+and acceptance criteria (regression gate).
 
-## Protocol-First Quick Start
+---
 
-### 0. Invariant (Read First)
+## Invariants
 
-Violation of any invariant invalidates the epoch.
+Violation of any invariant invalidates the cycle.
 
-- **INVARIANT**: each test case must run in an isolated worker context.
-- **INVARIANT**: controller never generates model outputs; it only scores worker outputs.
-- **INVARIANT**: workers must not see golden labels, other test cases, or prior worker context.
-- **INVARIANT**: one mutation per iteration.
+- **INVARIANT**: each test case runs in an isolated worker context.
+- **INVARIANT**: controller never generates model outputs; it only scores.
+- **INVARIANT**: workers must not see golden labels, other test cases, or prior context.
+- **INVARIANT**: one mutation per cycle.
+- **INVARIANT**: accept/rollback decisions require full-corpus re-run.
 
-### 1. Dispatch (Run Isolated Workers)
+---
 
-For each corpus entry, run one isolated worker.
+## The Cycle
 
-Use this exact worker dispatch shape:
+Each iteration follows this exact sequence.
+
+### 1. Run
+
+Dispatch each corpus entry to an isolated worker.
+
+Worker dispatch shape:
 
 ```markdown
 You are a worker evaluator. Do not score and do not explain.
 
 ## Prompt Under Test
-{prompt_version_verbatim}
+{candidate_verbatim}
 
 ## Input
 {single_test_case_input}
 
 ## Output Schema
-{fixed_worker_output_schema}
+{worker_output_schema}
 
 Return ONLY schema-compliant output.
 If prompt indicates no action, return:
 {"decision":"no_output","outputs":[]}
 ```
 
-### 2. Verify (Isolation Checklist)
+### 2. Verify
 
-Before moving to scoring and diagnosis:
+Before scoring, confirm isolation:
 
-- [ ] each case was run in a fresh worker
+- [ ] each case ran in a fresh worker
 - [ ] workers did not receive golden labels
 - [ ] workers did not receive other test cases
 - [ ] controller only scored worker outputs (no inline generation)
 
-If any item is unchecked: epoch is invalid, re-run correctly.
+If any item is unchecked: cycle is invalid, re-run.
 
-### 3. Prepare Corpus and Scoring
+### 3. Score
 
-Create 6-8 test cases that represent the full range of inputs your prompt
-will see in production. Each test case has an input and expected output.
+Compare worker outputs against golden labels.
 
-**Read [references/corpus-format.md](references/corpus-format.md) now**
-before creating your corpus.
+- Produce per-case scores across configured dimensions.
+- Record both aggregate (mean, median) and tail (min, failure rate).
+- Hard-check failures (format, safety) are separate from soft scores.
 
-Key: include at least 2 "negative" cases where the correct output is
-"do nothing" or "reject." These prevent false-positive overfitting.
+Scoring dimensions, weights, and thresholds are **project-level configuration**.
+See [Configuration](#configuration) for how to define them.
 
-Pick 2-4 dimensions that matter for your use case. Examples:
+### 4. Diagnose
 
-| Use Case | Dimensions |
-|----------|-----------|
-| Classifier | Recall, Precision, Edge-case handling |
-| Extractor | Completeness, Accuracy, Format compliance |
-| Agent system prompt | Task success, Safety, Efficiency |
-| Creative writing | Relevance, Originality, Tone consistency |
+Identify the single primary failure mode for this cycle.
 
-Each dimension scores 0-10. Assign weights that reflect your priorities.
+- Focus on the worst-scoring case.
+- Produce a testable hypothesis: "if [change], then [case N] should improve because [reason]."
+- Do not attempt to fix multiple failure modes in one cycle.
 
-### 4. Start with a Seed Prompt
+### 5. Explore
 
-Write the simplest possible prompt that captures your intent — 2-3 sentences.
-Don't optimize upfront. The breeder will grow it.
+Search for external evidence that can inform the mutation.
 
-### 5. Score, Diagnose, Mutate, Re-run
+Explore is not optional decoration — it is the upstream supply system for Mutate.
+Without evidence, mutations degrade to guesswork.
 
-Each iteration follows this exact sequence:
+Sources (configured per project):
+- Web search (papers, docs, community discussions)
+- Skill hubs (ClawHub, LobeHub, Cursor Skills, etc.)
+- Local memory (past cycle logs, prior art)
 
-**Step 1: Collect and Score** — Compare each worker output against golden labels.
+Each retrieved item must be structured as an **Evidence Card**:
 
-**Step 2: Diagnose** — Find the worst-scoring test and identify root cause.
+```
+artifact        — the skill/prompt/pattern snippet or pointer
+source_ref      — URL or internal reference (traceable)
+hypothesis      — which failure mode it addresses
+risk            — what side effects it might introduce
+confidence      — estimated relevance (0-1)
+```
 
-**Step 3: Mutate** — Apply exactly one mutation.
+### 6. Select
 
-**Step 4: Re-run Full Epoch** — Re-dispatch all tests, then compare score profile.
+Filter evidence before it enters Mutate. Three gates:
 
-Accept only if:
+- **Relevance**: directly addresses the diagnosed failure mode.
+- **Executability**: can be expressed as a single mutation.
+- **Verifiability**: effect is observable in the current corpus.
 
-- overall score improves, and
-- no single case drops > 1.5.
+Reject evidence that fails any gate. Record rejections with reasons.
 
-Otherwise rollback.
+### 7. Mutate
 
-### Platform Hints for Isolation
+Apply exactly one change to produce the next candidate.
+
+- The mutation must link to at least one Evidence Card (when Explore is enabled).
+- Record: what changed, why, which evidence supported it.
+- Do not bundle unrelated improvements.
+
+### 8. Re-run
+
+Re-dispatch the full corpus against the mutated candidate.
+Same isolation rules as Step 1.
+
+### 9. Decide
+
+Compare re-run results against the previous baseline.
+
+Acceptance criteria are **project-level configuration**. Common patterns:
+- Overall score improves.
+- No single case regresses beyond a configured tolerance.
+- All hard-check constraints still pass.
+
+If accepted: new candidate becomes baseline.
+If rejected: rollback, log the failure reason, carry the lesson forward.
+
+### 10. Log
+
+Record the full cycle for auditability and future strategy selection:
+
+- `hypothesis`
+- `evidence_used` (Evidence Card IDs)
+- `mutation_applied`
+- `before_scores` / `after_scores`
+- `decision` (accept/rollback)
+- `lesson`
+
+---
+
+## Configuration
+
+Hacker does not ship built-in stages, mutation menus, or scoring thresholds.
+These are **project-level policy** that you configure per use case.
+
+A configuration defines:
+
+| Section | What you configure | Example |
+|---------|--------------------|---------|
+| `evaluation` | Scoring dimensions, weights, hard checks | `{recall: 0.4, precision: 0.3, quality: 0.3}` |
+| `explore` | Search providers, budget, evidence schema | `{providers: ["web", "lobehub"], topK: 5}` |
+| `mutation` | Available mutators, evidence requirement | `{requireEvidenceLink: true}` |
+| `acceptance` | Gate thresholds, regression tolerance | `{minImprovement: 0.1, maxCaseDrop: 1.5}` |
+| `stages` | Optional phased curriculum | `[{name: "recall", gate: {...}}, ...]` |
+| `guards` | Global invariants | `{maxMutationsPerCycle: 1, fullCorpusRerun: true}` |
+
+See [references/config-schema.ts](references/config-schema.ts) for the full
+TypeScript interface. Drop a `hacker.config.ts` (or `.yaml`/`.json`) in your
+project root to override defaults.
+
+Default profiles are provided as **examples**, not as canonical truth:
+- [references/stages.md](references/stages.md) — a 5-stage curriculum example
+- [references/mutations.md](references/mutations.md) — a 9-operator mutation menu example
+
+---
+
+## Corpus Design
+
+See [references/corpus-format.md](references/corpus-format.md) for structure.
+
+Key rules:
+- Minimum 6 test cases.
+- At least 2 negative cases (expected output: "do nothing").
+- At least 1 adversarial case.
+- Diversity over volume.
+
+---
+
+## Platform Hints for Isolation
 
 | Platform | Isolation strategy |
 |----------|--------------------|
@@ -136,80 +222,68 @@ Otherwise rollback.
 | Claude Code | Spawn one subagent per test case with fresh context |
 | Codex | Run one isolated process per case (no shared state) |
 
-See [references/stages.md](references/stages.md) for stage goals and gates.
-See [references/mutations.md](references/mutations.md) for mutation operators.
-
-## When to Use This
-
-- A prompt works on your demo example but fails on edge cases
-- You've been tweaking a prompt for hours with diminishing returns
-- You need evidence that version A is better than version B
-- You want to find the minimal prompt that still performs well
+---
 
 ## State Tracking
 
-Track all state in a single scratchpad file. Recommended format:
+Track all state in a single scratchpad file:
 
 ```markdown
 ## Current Focus
-- stage: 2
 - target: my-classifier-prompt
-- prompt_version: v5
+- candidate_version: v5
+- cycle: 12
 
-## Evolution Log
+## Cycle Log
 
-### Stage 1: Can It See?
-- v1 (seed): "Classify whether the input contains..."
-  - Worker outputs:
-    - T1: {"decision":"output","outputs":[...]}
-    - T2: {"decision":"output","outputs":[...]}
-    - T3: {"decision":"output","outputs":[...]}  # wrong vs golden
-  - Epoch 1 scores: [T1:6, T2:7, T3:4, T4:8, T5:5, T6:7] avg=6.17
-  - Isolation check: PASS
-  - Diagnosis: T3 — missed subtle case
-  - Mutation: M3 — added example of implicit pattern
-- v2: [updated prompt]
-  - Worker outputs: ...
-  - Epoch 2 scores: [T1:7, T2:7, T3:7, T4:8, T5:6, T6:7] avg=7.00 ✓ STABLE
-  - Isolation check: PASS
-  - → Advance to Stage 2
+### Cycle 12
+- diagnosis: T3 false positive — prompt triggers on frontend errors
+- explore: found constraint pattern from [source_ref]
+- evidence: {artifact: "exclude frontend frameworks", confidence: 0.8}
+- mutation: added exclusion rule for frontend terminology
+- before: [T1:7, T2:7, T3:4, T4:8, T5:6, T6:7] avg=6.5
+- after:  [T1:7, T2:7, T3:7, T4:8, T5:6, T6:7] avg=7.0
+- decision: ACCEPT
+- lesson: category exclusions more effective than keyword blocklists
 
-## Current Prompt (v5)
+## Current Candidate (v5)
 [full prompt text here]
 ```
 
+---
+
 ## Integration with Ralph Loop
 
-If using with Cursor's Ralph Loop, set up the scratchpad at
-`.cursor/ralph/scratchpad.md` and include the evolution log inline.
-The loop's automatic re-invocation drives the epoch cycle.
+Set up scratchpad at `.cursor/ralph/scratchpad.md`.
+Each Ralph iteration drives one Hacker cycle:
 
-### One Ralph Iteration with Hacker
+1. Read scratchpad (candidate version, previous scores).
+2. Run full corpus (isolated workers).
+3. Verify isolation.
+4. Score outputs.
+5. Diagnose worst failure.
+6. Explore external evidence.
+7. Select best-fit evidence.
+8. Apply one mutation.
+9. Re-run full corpus.
+10. Accept or rollback; update scratchpad.
 
-1. Read scratchpad (stage, prompt version, previous scores).
-2. Dispatch N isolated workers (one per test case).
-3. Collect raw worker outputs.
-4. Score outputs against golden labels.
-5. Run isolation verification checklist.
-6. Diagnose worst failure.
-7. Apply one mutation.
-8. Update scratchpad; next iteration re-runs full epoch.
+---
 
-## Research Protocol
+## When to Use This
 
-Use web search during diagnosis to ground mutations in evidence:
+- A prompt works on demos but fails on edge cases.
+- You've been tweaking a prompt for hours with diminishing returns.
+- You need evidence that version A is better than version B.
+- You want to find the minimal prompt that still performs well.
+- You want mutations grounded in external evidence, not intuition.
 
-- "What makes X detectable by LLMs?" → improve recall
-- "Common false positive patterns in Y" → improve precision
-- "Best practices for Z output format" → improve quality
-
-Every mutation should be traceable to a specific failure on a specific
-test case, with a reasoned hypothesis for why the change will help.
+---
 
 ## When to Stop
 
-The prompt is done when ALL of:
-- All stages passed with stable scores
-- Stage 5 pruning completed
-- No test case below 5.0 on any dimension
-- You can explain why every instruction exists
+The candidate is done when ALL of:
+- Configured stage gates passed with stable scores.
+- Pruning completed (if configured).
+- No test case below configured floor on any dimension.
+- You can explain why every instruction exists.
