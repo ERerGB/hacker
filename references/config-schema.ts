@@ -6,19 +6,55 @@
  *
  * The core loop is fixed (run → score → diagnose → explore → select → mutate → rerun → decide).
  * Everything below configures the *policy* within that loop.
+ *
+ * Dependency: candidates are `.agent.md` files managed by subagent-harness.
+ * See https://github.com/ERerGB/subagent-harness
  */
+
+// ---------------------------------------------------------------------------
+// Re-exported Harness types used in the cycle
+// ---------------------------------------------------------------------------
+
+// These types come from `subagent-harness`. Declared here as structural
+// interfaces so Hacker's schema is self-contained and doesn't require
+// an npm dependency at the skill/config level.
+
+export interface RichAgentDocument {
+  sourcePath: string;
+  frontmatter: { name: string; description: string; [key: string]: unknown };
+  body: string;
+  extensions: Record<string, unknown>;
+}
+
+export interface PatchOp {
+  path: string;
+  value: unknown;
+}
+
+export type RuntimeTarget = "cursor" | "claude-code" | "production";
 
 // ---------------------------------------------------------------------------
 // Top-level config
 // ---------------------------------------------------------------------------
 
 export interface HackerConfig {
+  candidate: CandidateConfig;
   evaluation: EvaluationConfig;
   explore: ExploreConfig;
   mutation: MutationConfig;
   acceptance: AcceptanceConfig;
   stages?: StageConfig[];
   guards: GuardConfig;
+}
+
+// ---------------------------------------------------------------------------
+// Candidate — the `.agent.md` being optimized
+// ---------------------------------------------------------------------------
+
+export interface CandidateConfig {
+  path: string;           // relative path to the `.agent.md` source file
+  target: RuntimeTarget;  // compose target for worker dispatch
+  profile?: string;       // optional Harness profile to activate during compose
 }
 
 // ---------------------------------------------------------------------------
@@ -89,12 +125,21 @@ export interface MutationOperator {
   id: string; // e.g. "add_constraint", "remove_constraint", "rephrase"
   description: string;
   appliesWhen: string; // human-readable trigger condition
+  targetPath?: string; // default PatchOp.path this operator typically uses (e.g. "body")
 }
 
 export interface MutationConfig {
   operators: MutationOperator[];
   requireEvidenceLink: boolean; // mutation must reference ≥1 EvidenceCard
   maxMutationsPerCycle: 1; // hard invariant — always 1
+}
+
+// The actual mutation applied in a cycle. Links operator → evidence → patch.
+export interface AppliedMutation {
+  operatorId: string;
+  evidenceCardIds: string[]; // which Evidence Cards supported this mutation
+  patch: PatchOp;            // the single patchAgent() operation applied
+  hypothesis: string;        // why this change should improve the diagnosed failure
 }
 
 // ---------------------------------------------------------------------------
@@ -135,4 +180,24 @@ export interface GuardConfig {
   workerIsolation: true; // enforced at runtime, not configurable
   maxCyclesBeforeStop?: number; // circuit breaker
   maxCyclesWithoutImprovement?: number; // early stopping
+}
+
+// ---------------------------------------------------------------------------
+// Cycle Record — the structured output of Step 10 (Log)
+// ---------------------------------------------------------------------------
+
+export interface CycleRecord {
+  cycle: number;
+  candidateVersion: string; // git SHA or version tag of the .agent.md
+  diagnosis: {
+    worstCase: string;    // test case ID
+    failureMode: string;  // human-readable description
+    hypothesis: string;   // testable prediction
+  };
+  evidenceUsed: EvidenceCard[];
+  mutation: AppliedMutation;
+  beforeScores: Record<string, number>; // per-case or per-dimension
+  afterScores: Record<string, number>;
+  decision: "accept" | "rollback";
+  lesson: string; // what was learned regardless of accept/rollback
 }

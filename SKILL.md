@@ -57,13 +57,28 @@ Each iteration follows this exact sequence.
 
 Dispatch each corpus entry to an isolated worker.
 
+**Candidate format**: The candidate under optimization is a
+[subagent-harness](https://github.com/ERerGB/subagent-harness) `.agent.md` file.
+This gives the cycle a structured representation to read, mutate, and write back.
+
+The Run phase is a three-step pipeline:
+
+```
+.agent.md → parse → validate → compose → dispatch N workers
+```
+
+1. **Parse** — `parseRichAgentMarkdown(path, content)` → `RichAgentDocument`
+2. **Validate** — `validateRichAgent(doc)` → confirm schema integrity
+3. **Compose** — `composeSubagent(doc, target)` → runtime-ready artifact
+4. **Dispatch** — send the composed artifact to N isolated workers (one per test case)
+
 Worker dispatch shape:
 
 ```markdown
 You are a worker evaluator. Do not score and do not explain.
 
 ## Prompt Under Test
-{candidate_verbatim}
+{composed_candidate}
 
 ## Input
 {single_test_case_input}
@@ -75,6 +90,9 @@ Return ONLY schema-compliant output.
 If prompt indicates no action, return:
 {"decision":"no_output","outputs":[]}
 ```
+
+The `composed_candidate` is the output of `composeSubagent()`, not the raw
+`.agent.md` source. Workers receive the runtime-native format for their platform.
 
 ### 2. Verify
 
@@ -142,14 +160,40 @@ Reject evidence that fails any gate. Record rejections with reasons.
 
 Apply exactly one change to produce the next candidate.
 
+The mutation operates on the structured `RichAgentDocument` via `patchAgent()`:
+
+```
+patchAgent(doc, { path, value }) → mutatedDoc (immutable)
+```
+
+Supported patch paths:
+- `body` — the prompt text (most common mutation target)
+- `model.temperature`, `model.name` — model configuration
+- `extensions.*` — consumer-defined metadata (e.g. evolution state)
+
+After patching:
+1. **Validate** — `validateRichAgent(mutatedDoc)` to confirm the mutation didn't break schema
+2. **Serialize** — `serializeAgent(mutatedDoc)` to write back the updated `.agent.md`
+3. **Record** — what changed, why, which evidence supported it
+
+Constraints:
 - The mutation must link to at least one Evidence Card (when Explore is enabled).
-- Record: what changed, why, which evidence supported it.
 - Do not bundle unrelated improvements.
+- One `patchAgent()` call per cycle.
 
 ### 8. Re-run
 
 Re-dispatch the full corpus against the mutated candidate.
-Same isolation rules as Step 1.
+
+Same pipeline as Step 1:
+
+```
+mutated .agent.md → parse → validate → compose → dispatch N workers
+```
+
+Same isolation rules apply. The re-run uses the serialized output from Step 7,
+not an in-memory representation — ensuring the written `.agent.md` is the
+source of truth for scoring.
 
 ### 9. Decide
 
@@ -169,10 +213,19 @@ Record the full cycle for auditability and future strategy selection:
 
 - `hypothesis`
 - `evidence_used` (Evidence Card IDs)
-- `mutation_applied`
+- `mutation_applied` (the `PatchOp` that was applied)
 - `before_scores` / `after_scores`
 - `decision` (accept/rollback)
 - `lesson`
+
+Cycle metadata is also persisted in the candidate's `extensions` field via:
+
+```
+patchAgent(doc, { path: "extensions.evolution", value: { cycle, scores, ... } })
+```
+
+This keeps the `.agent.md` self-describing — any consumer can read its
+evolution history without external state files.
 
 ---
 
@@ -185,6 +238,7 @@ A configuration defines:
 
 | Section | What you configure | Example |
 |---------|--------------------|---------|
+| `candidate` | Source `.agent.md` path and compose target | `{path: "agents/bot.agent.md", target: "cursor"}` |
 | `evaluation` | Scoring dimensions, weights, hard checks | `{recall: 0.4, precision: 0.3, quality: 0.3}` |
 | `explore` | Search providers, budget, evidence schema | `{providers: ["web", "lobehub"], topK: 5}` |
 | `mutation` | Available mutators, evidence requirement | `{requireEvidenceLink: true}` |
