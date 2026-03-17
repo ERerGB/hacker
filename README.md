@@ -1,195 +1,131 @@
 # Hacker
 
-**Breed better prompts instead of guessing.**
+> **Breed better prompts instead of guessing.**
 
 Hacker is an agent skill that applies evolutionary optimization to LLM prompts. Instead of tweaking prompts by intuition, it runs them against a test corpus, scores the outputs, diagnoses failures, and applies targeted mutations — the same loop that makes neural networks learn, adapted for prompt engineering.
 
-## The Problem
+---
 
-Manual prompt engineering is:
-- **Anecdotal** — you test on 2-3 examples, ship it, and pray
-- **Regressive** — fixing one edge case often breaks another
-- **Unaccountable** — you can't prove version B is better than version A
+## The Problem — Prompt Regression Hell
 
-## The Solution
+Alice writes a great prompt for a support ticket classifier. It works perfectly. 
+The next day, a weird edge case appears (a user complaining in all caps). Alice uses her intuition to add a new constraint to the prompt: *"Ignore text in ALL CAPS"*. 
+The edge case is fixed. But silently, her new constraint just broke 3 older, perfectly normal tickets where users legitimately used acronyms.
+
+> **Root Cause:** Manual prompt engineering is blind. Iteration relies on intuition and isolated testing, leading to endless regressions. You can't scientifically prove version B is better than version A.
+
+---
+
+## The Solution — Data-Driven Evolution
+
+Hacker replaces intuition with a deterministic, data-driven pipeline:
 
 ```
-Test Corpus (fixed)          Prompt (evolving)           Golden Labels (fixed)
-      ↓                             ↓                           ↓
-[dispatch N isolated workers] → N raw worker outputs → [controller scoring]
-                                                             ↓
-                                                    [failure diagnosis]
-                                                             ↓
-                                                   [one targeted mutation]
-                                                             ↓
-                                                      [re-dispatch epoch]
-                                                             ↓
-                                                   accept / rollback
+Test Corpus                 Prompt (evolving)               Golden Labels
+    │                               │                             │
+    ▼                               ▼                             ▼
+ [Dispatch] ──▶ N isolated worker outputs ──▶ [Score] ──▶ [Diagnose]
+    ▲                                                             │
+    │                                                             ▼
+ [Re-run] ◀──────────────── [Apply 1 Mutation] ◀──────────────────┘
 ```
 
-Each iteration: **run → score → diagnose → mutate → re-run → accept or rollback.**
+**How it fixes Alice's problem:**
+1. **No guessing:** The controller identifies exactly *which* case failed and *why*.
+2. **Targeted mutation:** It selects a specific operator (e.g., `M1: Add constraint`) to fix the failure.
+3. **Regression proof:** The mutated prompt must pass the entire corpus again. If the new fix breaks old cases, the mutation is immediately rolled back.
 
-No guessing. Every change is traced to a specific failure on a specific test case.
+---
 
-## Protocol-First Quick Start
+## 5-Minute Quickstart
 
-### 0. Invariant (Read First)
+Stop guessing. Let your Agent breed the prompt for you.
 
-Violation of any invariant invalidates the epoch.
+```bash
+# 1. Drop the skill into your project
+cp -r hacker/ .cursor/skills/hacker/
+# Or clone globally: git clone https://github.com/ERerGB/hacker.git ~/.cursor/skills/hacker
 
-- Each test case runs in an isolated worker context.
-- Controller never generates model outputs; it only scores worker outputs.
-- Workers cannot see golden labels, other test cases, or prior worker context.
-- One mutation per iteration.
+# 2. Open Cursor Chat / Claude Code and tell the Agent to start:
+"Run the hacker prompt evolution against my support_bot.md using the test cases in corpus.md"
+```
 
-### 1. Dispatch (Run Isolated Workers)
+### What you will see (Real Showcase)
 
-For each test case, dispatch one isolated worker with:
+The agent will start an autonomous loop, logging its exact decisions. You'll see it thinking like this:
 
-- Prompt under test (verbatim)
-- One test input only
-- Fixed output schema
+```log
+[Epoch 3 Complete]
+Score: 7.2/10 (↑ 0.4)
+Status: ACCEPTED
 
-### 2. Verify (Isolation Checklist)
+[Diagnosis]
+Case #4 (False Positive) failed. The prompt triggered on "React rendering" when it should only trigger on "Database errors".
+[Mutation Applied] 
+M1 (Add Constraint): Added instruction -> "CRITICAL: Only flag backend infrastructure errors. Ignore all frontend framework issues."
+```
 
-Before scoring/diagnosis, confirm:
+---
 
-- All cases used fresh workers
-- Workers did not receive golden labels
-- Workers did not receive other case inputs
-- Controller only scored outputs
+## The Hacker Protocol (Under the Hood)
 
-If any check fails, the epoch is invalid.
+If you are building your own tools around Hacker, you must strictly follow these invariants. Violation of any rule invalidates the epoch.
 
-### 3. Score -> Diagnose -> Mutate -> Re-run
+| Phase | Action | Strict Rule / Invariant |
+|-------|--------|-------------------------|
+| **1. Dispatch** | Run test cases against the prompt. | Each case MUST run in a fully isolated worker context. No cross-contamination. |
+| **2. Verify** | Check worker purity. | Workers cannot see golden labels, other test cases, or prior worker context. |
+| **3. Score** | Compare output to golden labels. | The controller never generates outputs, it ONLY scores worker outputs. |
+| **4. Diagnose**| Identify the worst performing case. | Focus entirely on the single lowest-scoring case. |
+| **5. Mutate** | Apply a fix from the Mutation Menu. | **Only ONE mutation** is allowed per iteration. |
+| **6. Re-run** | Run the entire corpus again. | Accept only if overall score improves AND no single case drops > 1.5 points. |
 
-1. Score worker outputs against golden labels.
-2. Diagnose the worst case.
-3. Apply one targeted mutation.
-4. Re-run full epoch.
-5. Accept only if overall score improves and no single case drops > 1.5.
+---
 
-### 4. Define Corpus and Scoring
+## Reference: 5 Stages & 9 Mutations
 
-- Use 6-8 diverse test cases.
-- Include at least 2 negative cases.
-- Score on 2-4 weighted dimensions.
-- Use `references/corpus-format.md` for structure and output schema.
-
-## How It Works (Reference Layer)
-
-### 5 Stages (Gates)
+### The 5 Stages (Gates)
+Hacker evolves prompts through specific maturity stages. It only advances when scores are stable (2 consecutive epochs within ±0.5).
 
 | Stage | Focus | Gate |
 |-------|-------|------|
-| 1. Can It See? | Recall — does it find what it should? | Recall ≥ 7.0 |
-| 2. Does It Filter? | Precision — does it avoid false positives? | Precision ≥ 7.0 |
-| 3. Is It Good? | Quality — is the output actually useful? | Quality ≥ 7.5 |
-| 4. Edge Cases | Robustness — does it handle weird inputs? | No score < 5.0 |
-| 5. Pruning | Minimality — what instructions can we delete? | ≤80% length, same scores |
+| **1. Can It See?** | Recall — does it find what it should? | Recall ≥ 7.0 |
+| **2. Does It Filter?** | Precision — does it avoid false positives? | Precision ≥ 7.0 |
+| **3. Is It Good?** | Quality — is the output actually useful? | Quality ≥ 7.5 |
+| **4. Edge Cases** | Robustness — does it handle weird inputs? | No score < 5.0 |
+| **5. Pruning** | Minimality — what instructions can we delete? | ≤80% length, same scores |
 
-Advance only when scores are stable (2 consecutive epochs within ±0.5).
+*(See `references/stages.md` for full gate details.)*
 
-See `references/stages.md` for full gate details.
+### The 9 Mutation Operators
+Instead of randomly rewriting the whole file, Hacker acts like a surgeon, picking from a targeted menu:
 
-### 9 Mutation Operators (Menu)
+| ID | Operator | When it's used |
+|----|----------|----------------|
+| **M1** | Add constraint | False positives occurring |
+| **M2** | Remove constraint | Missed recall (over-filtered) |
+| **M3** | Add positive example | Unrecognized pattern |
+| **M4** | Add negative example | Wrong triggers |
+| **M5** | Rephrase | Ambiguity in instructions |
+| **M6** | Reorder | Important rule is being ignored/buried |
+| **M7** | Split | One rule doing two conflicting things |
+| **M8** | Merge | Two rules saying the same thing |
+| **M9** | Delete | Instruction has no measurable effect (Stage 5 only) |
 
-Instead of randomly rewriting, pick from a targeted menu:
+*(See `references/mutations.md` for usage rules and constraints.)*
 
-| ID | Mutation | When |
-|----|----------|------|
-| M1 | Add constraint | False positives |
-| M2 | Remove constraint | Missed recall |
-| M3 | Add positive example | Unrecognized pattern |
-| M4 | Add negative example | Wrong triggers |
-| M5 | Rephrase | Ambiguity |
-| M6 | Reorder | Important rule buried |
-| M7 | Split | One rule doing two things |
-| M8 | Merge | Two rules saying the same thing |
-| M9 | Delete | No measurable effect (Stage 5 only) |
-
-See `references/mutations.md` for usage rules and constraints.
-
-### Built-in Overfitting Prevention
-
-- Test against ALL corpus entries every epoch, not just the one you're fixing
-- Require no single test case drops >1.5 points after mutation
-- Include "negative" test cases where the correct output is "do nothing"
-- Stage 5 specifically removes instructions that don't earn their keep
-
-## Install
-
-### Cursor
-
-```bash
-# Copy to project skills
-cp -r hacker/ .cursor/skills/hacker/
-
-# Or clone globally
-git clone https://github.com/ERerGB/hacker.git ~/.cursor/skills/hacker
-```
-
-### Claude Code
-
-```bash
-git clone https://github.com/ERerGB/hacker.git .claude/skills/hacker
-```
-
-### OpenClaw / ClawHub
-
-```bash
-openclaw skill install ERerGB/hacker
-```
-
-### LobeHub
-
-```bash
-npx -y @lobehub/market-cli skills install erergb-hacker
-```
-
-## What's Inside
-
-```
-hacker/
-├── SKILL.md                    # Core workflow (< 200 lines)
-├── claw.json                   # ClawHub manifest
-├── references/
-│   ├── corpus-format.md        # How to structure test cases
-│   ├── stages.md               # Stage goals and gates
-│   ├── mutations.md            # Mutation operator reference
-│   └── extensions.md           # 5 optional advanced features
-├── examples/
-│   └── classifier.md           # Worked example: sentiment classifier
-├── LICENSE                     # MIT
-└── README.md
-```
+---
 
 ## Inspired By
 
-| Source | What we took |
-|--------|-------------|
+| Source | What we adapted |
+|--------|-----------------|
 | [Promptbreeder](https://arxiv.org/abs/2309.16797) (DeepMind) | Evolutionary prompt mutation via LLM |
 | [EvoSkill](https://arxiv.org/abs/2603.02766) | Failure-driven skill discovery, Pareto selection |
 | [Opus Self-Evolving Agent](https://dev.to/stefan_nitu/32-more-generations-my-self-evolving-ai-agent-learned-to-delete-its-own-code-18bp) | Reflexion, pruning as evolution, structural > disciplinary |
 | [Genetic Prompt Programming](https://github.com/stack-research/genetic-prompt-programming) | Enumerated mutation operators |
 
-The difference: those are frameworks and research papers. This is a skill file you drop into your project and start using in 5 minutes.
-
-## Extensions
-
-Five optional extension points activate when the base loop isn't enough:
-
-| Signal | Extension |
-|--------|-----------|
-| Stuck on same mutation 3+ times | Co-evolving mutation strategies |
-| Prompt > 15 instructions | Instruction effectiveness tracking |
-| Scores oscillate between versions | Pareto frontier selection |
-| Catastrophic regression (>2.0 drop) | Canary testing |
-| Average hides bad dimensions | Multi-dimensional gating |
-
-See [references/extensions.md](references/extensions.md) for details.
-
-**Default: run without extensions.** Add complexity only when earned.
+*The difference: Those are complex frameworks and research papers. This is a simple Skill file you drop into your project and start using in 5 minutes.*
 
 ## License
 
