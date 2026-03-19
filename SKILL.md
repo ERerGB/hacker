@@ -11,8 +11,6 @@ metadata:
   author: ERerGB
   version: "0.2.0"
   tags: prompt-evolution, optimization, breeding, testing, evidence-driven
-compatibility: Cursor, Claude Code, Codex
-allowed-tools: Read Write Shell WebSearch Grep
 ---
 
 # Hacker
@@ -133,7 +131,7 @@ Without evidence, mutations degrade to guesswork.
 
 Sources (configured per project):
 - Web search (papers, docs, community discussions)
-- Skill hubs (ClawHub, LobeHub, Cursor Skills, etc.)
+- Skill hubs and public prompt repositories
 - Local memory (past cycle logs, prior art)
 
 Each retrieved item must be structured as an **Evidence Card**:
@@ -238,7 +236,7 @@ A configuration defines:
 
 | Section | What you configure | Example |
 |---------|--------------------|---------|
-| `candidate` | Source `.agent.md` path and compose target | `{path: "agents/bot.agent.md", target: "cursor"}` |
+| `candidate` | Source `.agent.md` path and compose target | `{path: "agents/bot.agent.md", target: "runtime-default"}` |
 | `evaluation` | Scoring dimensions, weights, hard checks | `{recall: 0.4, precision: 0.3, quality: 0.3}` |
 | `explore` | Search providers, budget, evidence schema | `{providers: ["web", "lobehub"], topK: 5}` |
 | `mutation` | Available mutators, evidence requirement | `{requireEvidenceLink: true}` |
@@ -268,13 +266,14 @@ Key rules:
 
 ---
 
-## Platform Hints for Isolation
+## Runtime Discovery for Isolation
 
-| Platform | Isolation strategy |
-|----------|--------------------|
-| Cursor | Spawn one `Task` sub-agent per test case |
-| Claude Code | Spawn one subagent per test case with fresh context |
-| Codex | Run one isolated process per case (no shared state) |
+Use capability discovery instead of hardcoding platform adapters.
+
+1. Discover whether the runtime supports isolated worker execution primitives.
+2. Prefer one-worker-per-test-case isolation if available.
+3. If subagents are unavailable, use separate processes/contexts to avoid shared state.
+4. Validate isolation explicitly in the Verify step before scoring.
 
 ---
 
@@ -306,10 +305,11 @@ Track all state in a single scratchpad file:
 
 ---
 
-## Integration with Ralph Loop
+## Integration with Iterative Loop Runners
 
-Set up scratchpad at `.cursor/ralph/scratchpad.md`.
-Each Ralph iteration drives one Hacker cycle:
+Set up a single scratchpad path managed by your environment (for example:
+`.agent-runner/scratchpad.md`).
+Each iteration drives one Hacker cycle:
 
 1. Read scratchpad (candidate version, previous scores).
 2. Run full corpus (isolated workers).
