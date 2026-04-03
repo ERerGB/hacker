@@ -1,11 +1,10 @@
 ---
 name: hacker
 description: >
-  Evidence-driven prompt and agent evolution engine.
+  Define a problem. Aggregate all best practices. Hack it.
+  Problem-driven optimization engine for LLM prompts and agent configurations.
   Runs candidates against a test corpus, scores outputs, diagnoses failures,
   explores external evidence, and applies targeted single-variable mutations.
-  Use when you need to systematically improve any LLM prompt or agent
-  configuration beyond what manual tweaking achieves.
 license: MIT
 metadata:
   author: ERerGB
@@ -15,7 +14,7 @@ metadata:
 
 # Hacker
 
-Evolve any LLM prompt or agent configuration through evidence-driven iteration.
+Define a problem. Aggregate all best practices. Hack it.
 
 ```
 Corpus (fixed)       Candidate (evolving)       Golden Labels (fixed)

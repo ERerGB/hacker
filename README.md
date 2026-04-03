@@ -1,6 +1,6 @@
 # Hacker
 
-> **Breed better prompts with evidence, not intuition.**
+> **Define a problem. Aggregate all best practices. Hack it.**
 
 Hacker is an agent skill that applies evidence-driven evolutionary optimization to LLM prompts and agent configurations. Instead of tweaking prompts by gut feel, it runs them against a test corpus, scores outputs, diagnoses failures, explores external evidence, and applies targeted single-variable mutations — with full regression protection.
 
