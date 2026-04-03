@@ -2,40 +2,46 @@
 
 > **Define a problem. Aggregate all best practices. Hack it.**
 
-An agent skill that optimizes any LLM prompt by diagnosing failures, searching the world for evidence-backed fixes, and applying them one at a time — with full regression protection.
+Drop this skill into Cursor. Your agent diagnoses prompt failures, searches the world for fixes, and applies them one at a time — with full regression protection. No guesswork.
 
 ---
 
-You spent two hours tuning a classifier prompt. It works on your three test cases. You deploy. A user sends an all-caps complaint — the prompt classifies "URGENT BUG FIX" as positive feedback. You add a rule: "ignore all-caps text." Next morning, normal acronyms (API, HTTP, SQL) are being ignored too. Three old cases silently regressed.
+A developer spends two hours tuning a support-ticket classifier prompt. It works on three test cases. They deploy. A customer sends an all-caps complaint — the prompt classifies "URGENT BUG FIX" as positive feedback. They add a rule: *"ignore all-caps text."* Next morning, normal acronyms (API, HTTP, SQL) are being ignored too. Three old cases silently regressed. They didn't know, because they only re-tested the new case.
 
-Every manual fix is a bet you can't verify.
+This is what prompt engineering looks like without a regression gate. Every fix is a blind bet. You can't prove version B is better than version A — you can only hope nothing broke.
 
-Hacker turns it into a process you can trust. You say: "Run hacker against my classifier using corpus.md" — and walk away.
+### What changes
 
-When you come back, the scratchpad reads:
+The developer writes 8 test cases with expected outputs — including the all-caps edge case — and tells the agent:
+
+> *"Run hacker against my classifier using corpus.md"*
+
+They walk away. When they come back, the scratchpad reads:
 
 ```
 Cycle 3  ACCEPT  avg 6.2 → 7.1
   diagnosis: T4 false positive — all-caps acronyms treated as noise
   explored:  arxiv.org/abs/2301.xxxxx — case-folding preserves acronyms
-  mutation:  replaced "ignore caps" rule with Unicode category filter
+  mutation:  replaced "ignore caps" with Unicode category filter
   regressed: none
 
 Cycle 5  ACCEPT  avg 7.1 → 7.8
   diagnosis: T2 missed implicit complaint ("this is ridiculous")
   explored:  lobehub.com/skill/sentiment-boundary — negative-example pattern
-  mutation:  added 2 implicit-negative examples from public skill
+  mutation:  added implicit-negative examples from public skill
   regressed: none
 
 Cycle 8  ACCEPT  avg 7.8 → 8.0
-  diagnosis: no single case below 6.0 — entering pruning
-  mutation:  deleted rule #4 (no measurable effect across 3 epochs)
+  diagnosis: no case below 6.0 — entering pruning
+  mutation:  deleted rule with no measurable effect across 3 epochs
   result:    prompt 18% shorter, same scores
 ```
 
-Eight cycles. No guesswork. Every change has a source URL, a hypothesis, and a before/after score. You didn't write a single rule — the agent searched the world for evidence and applied it one cut at a time.
+They didn't write a single new rule. The agent diagnosed each failure, searched for evidence-backed solutions — a paper, a public skill, a community pattern — and applied them one cut at a time. Every change has a source URL, a hypothesis, and a before/after score.
 
-Built for the [Magpie](https://github.com/nicobailey/magpie) agent pipeline. Used in production to evolve sub-agent prompts across 50+ iteration cycles.
+This README was itself written using Hacker's methodology — 7 cycles of scoring against [NDD](https://github.com/nicobailey/narrative-driven-development) narrative dimensions, with evidence-sourced mutations and accept/rollback gates. The [evolution log](.cursor/hacker-narrative-evolution.md) is in this repo.
+
+Built for the [Magpie](https://github.com/nicobailey/magpie) agent pipeline, where it evolves sub-agent prompts in production.
 
 ```
   [Define]                    [Aggregate]              [Hack]
@@ -47,7 +53,7 @@ Built for the [Magpie](https://github.com/nicobailey/magpie) agent pipeline. Use
 
 ---
 
-## Quickstart
+## Try It
 
 ```bash
 # Drop the skill into your project
@@ -55,12 +61,13 @@ cp -r hacker/ .cursor/skills/hacker/
 
 # Or clone globally
 git clone https://github.com/ERerGB/hacker.git ~/.cursor/skills/hacker
-
-# Tell your agent to start:
-"Run hacker against my support_bot.md using corpus.md"
 ```
 
-The agent enters an autonomous loop — diagnosing, exploring, mutating, and validating — logging every decision.
+Then tell your agent:
+
+> *"Run hacker against my support_bot.md using corpus.md"*
+
+It enters an autonomous loop — diagnose, explore, mutate, verify — and logs every decision to a scratchpad you can audit after.
 
 ---
 
@@ -117,11 +124,13 @@ Default profiles are provided as **examples**:
 
 ## What's Next
 
-- **Structured candidates** — `.agent.md` format via [subagent-harness](https://github.com/ERerGB/subagent-harness): parse, mutate, serialize round-trip
-- **Explore providers** — SkillRank integration for evidence sourcing from skill hubs
-- **Multi-objective Pareto** — maintain a frontier of non-dominated prompt versions instead of a single best
+Hacker is actively evolving (using its own methodology, naturally):
 
-Star the repo to follow along. Issues and discussions welcome.
+- **Structured candidates** — `.agent.md` format via [subagent-harness](https://github.com/ERerGB/subagent-harness) for parse → mutate → serialize round-trips
+- **Evidence sourcing** — SkillRank integration to search skill hubs during the Explore phase
+- **Pareto frontier** — maintain multiple non-dominated prompt versions instead of a single best
+
+**Try it on your own prompt and [share your scratchpad log](https://github.com/ERerGB/hacker/issues).** The best way to understand Hacker is to watch it think — and the best way to improve it is more real-world evolution logs.
 
 ## License
 
