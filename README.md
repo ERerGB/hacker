@@ -2,29 +2,47 @@
 
 > **Define a problem. Aggregate all best practices. Hack it.**
 
-You spent two hours tuning a classifier prompt. It works perfectly on your three test cases. You deploy it. A user sends an all-caps complaint — the prompt classifies "URGENT BUG FIX" as positive feedback. You add a rule: "ignore all-caps text." Next morning, normal acronyms (API, HTTP, SQL) are being ignored too. Three old cases silently regressed. You didn't know, because you only tested the new one.
+An agent skill that optimizes any LLM prompt by diagnosing failures, searching the world for evidence-backed fixes, and applying them one at a time — with full regression protection.
 
-Every manual fix is a bet. You can't prove version B is better than version A. You don't know what broke until someone tells you.
+---
 
-**Hacker replaces that loop with a different one:**
+You spent two hours tuning a classifier prompt. It works on your three test cases. You deploy. A user sends an all-caps complaint — the prompt classifies "URGENT BUG FIX" as positive feedback. You add a rule: "ignore all-caps text." Next morning, normal acronyms (API, HTTP, SQL) are being ignored too. Three old cases silently regressed.
 
-1. **Define the problem** — build a test corpus with golden labels. Score your prompt against all of them. The worst-scoring case tells you exactly what's broken.
+Every manual fix is a bet you can't verify.
 
-2. **Aggregate best practices** — search the web, skill hubs, and community patterns for evidence that addresses the diagnosed failure. Don't guess. Find someone who already solved a similar problem.
+Hacker turns it into a process you can trust. You say: "Run hacker against my classifier using corpus.md" — and walk away.
 
-3. **Hack it** — apply one surgical change backed by that evidence. Re-run the full corpus. Accept only if overall score improves and nothing regresses. Otherwise rollback.
-
-The agent does this autonomously. You tell it to start, go get coffee, and come back to a scratchpad that says: "8 cycles. Found a paper on case-insensitive matching. Borrowed a negative-example pattern from a public skill. Pruned one dead rule. Prompt is 20% shorter, 12% more accurate. Every change has an evidence trail."
+When you come back, the scratchpad reads:
 
 ```
-Corpus (fixed)       Candidate (evolving)       Golden Labels (fixed)
-      ↓                      ↓                         ↓
-  [Run] ──▶ isolated outputs ──▶ [Score] ──▶ [Diagnose]
-    ▲                                             │
-    │                                             ▼
- [Re-run] ◀── [Mutate] ◀── [Select] ◀── [Explore]
-    │
- accept / rollback
+Cycle 3  ACCEPT  avg 6.2 → 7.1
+  diagnosis: T4 false positive — all-caps acronyms treated as noise
+  explored:  arxiv.org/abs/2301.xxxxx — case-folding preserves acronyms
+  mutation:  replaced "ignore caps" rule with Unicode category filter
+  regressed: none
+
+Cycle 5  ACCEPT  avg 7.1 → 7.8
+  diagnosis: T2 missed implicit complaint ("this is ridiculous")
+  explored:  lobehub.com/skill/sentiment-boundary — negative-example pattern
+  mutation:  added 2 implicit-negative examples from public skill
+  regressed: none
+
+Cycle 8  ACCEPT  avg 7.8 → 8.0
+  diagnosis: no single case below 6.0 — entering pruning
+  mutation:  deleted rule #4 (no measurable effect across 3 epochs)
+  result:    prompt 18% shorter, same scores
+```
+
+Eight cycles. No guesswork. Every change has a source URL, a hypothesis, and a before/after score. You didn't write a single rule — the agent searched the world for evidence and applied it one cut at a time.
+
+Built for the [Magpie](https://github.com/nicobailey/magpie) agent pipeline. Used in production to evolve sub-agent prompts across 50+ iteration cycles.
+
+```
+  [Define]                    [Aggregate]              [Hack]
+      ↓                            ↓                      ↓
+ Corpus + Labels ──▶ Score ──▶ Diagnose ──▶ Explore ──▶ Mutate ──▶ Re-run
+                                                                      ↓
+                                                              accept / rollback
 ```
 
 ---
@@ -94,6 +112,16 @@ Default profiles are provided as **examples**:
 | [Genetic Prompt Programming](https://github.com/stack-research/genetic-prompt-programming) | Enumerated mutation operators |
 
 *The difference: those are research frameworks. This is a skill file you drop into your project and start using in 5 minutes.*
+
+---
+
+## What's Next
+
+- **Structured candidates** — `.agent.md` format via [subagent-harness](https://github.com/ERerGB/subagent-harness): parse, mutate, serialize round-trip
+- **Explore providers** — SkillRank integration for evidence sourcing from skill hubs
+- **Multi-objective Pareto** — maintain a frontier of non-dominated prompt versions instead of a single best
+
+Star the repo to follow along. Issues and discussions welcome.
 
 ## License
 
