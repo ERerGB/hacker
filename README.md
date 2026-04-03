@@ -2,17 +2,19 @@
 
 > **Define a problem. Aggregate all best practices. Hack it.**
 
-Hacker is an agent skill that applies evidence-driven evolutionary optimization to LLM prompts and agent configurations. Instead of tweaking prompts by gut feel, it runs them against a test corpus, scores outputs, diagnoses failures, explores external evidence, and applies targeted single-variable mutations — with full regression protection.
+You spent two hours tuning a classifier prompt. It works perfectly on your three test cases. You deploy it. A user sends an all-caps complaint — the prompt classifies "URGENT BUG FIX" as positive feedback. You add a rule: "ignore all-caps text." Next morning, normal acronyms (API, HTTP, SQL) are being ignored too. Three old cases silently regressed. You didn't know, because you only tested the new one.
 
----
+Every manual fix is a bet. You can't prove version B is better than version A. You don't know what broke until someone tells you.
 
-## The Problem
+**Hacker replaces that loop with a different one:**
 
-Manual prompt engineering is blind iteration. You fix one edge case and silently break three older ones. You can't prove version B is better than version A. Every "improvement" is a guess.
+1. **Define the problem** — build a test corpus with golden labels. Score your prompt against all of them. The worst-scoring case tells you exactly what's broken.
 
-## The Solution
+2. **Aggregate best practices** — search the web, skill hubs, and community patterns for evidence that addresses the diagnosed failure. Don't guess. Find someone who already solved a similar problem.
 
-A deterministic, evidence-driven loop:
+3. **Hack it** — apply one surgical change backed by that evidence. Re-run the full corpus. Accept only if overall score improves and nothing regresses. Otherwise rollback.
+
+The agent does this autonomously. You tell it to start, go get coffee, and come back to a scratchpad that says: "8 cycles. Found a paper on case-insensitive matching. Borrowed a negative-example pattern from a public skill. Pruned one dead rule. Prompt is 20% shorter, 12% more accurate. Every change has an evidence trail."
 
 ```
 Corpus (fixed)       Candidate (evolving)       Golden Labels (fixed)
@@ -24,11 +26,6 @@ Corpus (fixed)       Candidate (evolving)       Golden Labels (fixed)
     │
  accept / rollback
 ```
-
-**What this fixes:**
-1. **No guessing** — the controller identifies which case failed and why.
-2. **Evidence-backed mutations** — external search (papers, skill hubs, community patterns) informs every change.
-3. **Regression proof** — the mutated candidate must pass the full corpus. If it breaks old cases, it's rolled back.
 
 ---
 

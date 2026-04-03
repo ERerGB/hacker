@@ -9,28 +9,30 @@ license: MIT
 metadata:
   author: ERerGB
   version: "0.2.0"
-  tags: prompt-evolution, optimization, breeding, testing, evidence-driven
+  tags: problem-driven, best-practices, evidence-driven, optimization, agent-evolution
 ---
 
 # Hacker
 
 Define a problem. Aggregate all best practices. Hack it.
 
-```
-Corpus (fixed)       Candidate (evolving)       Golden Labels (fixed)
-      ↓                      ↓                         ↓
-  [Run] ──▶ isolated outputs ──▶ [Score] ──▶ [Diagnose]
-    ▲                                             │
-    │                                             ▼
- [Re-run] ◀── [Mutate] ◀── [Select] ◀── [Explore]
-    │
- accept / rollback
-```
+You have a prompt that mostly works. Some cases fail. You don't know which
+change will fix them without breaking the ones that already pass. So you
+guess, test one case, ship, and hope.
 
-Core idea: treat prompt engineering like training a model.
-You need a dataset (corpus), a loss function (scoring), a training loop
-(run → score → diagnose → explore → select → mutate → re-run),
-and acceptance criteria (regression gate).
+Hacker eliminates the guessing. You define the problem as a test corpus
+with golden labels. The engine scores every case, diagnoses the single
+worst failure, searches the world for evidence-backed solutions, applies
+one precise change, re-runs the full corpus, and accepts only if nothing
+regressed. One cycle, one variable, full accountability.
+
+```
+  [Define]                    [Aggregate]              [Hack]
+      ↓                            ↓                      ↓
+ Corpus + Labels ──▶ Score ──▶ Diagnose ──▶ Explore ──▶ Mutate ──▶ Re-run
+                                                                      ↓
+                                                              accept / rollback
+```
 
 ---
 
