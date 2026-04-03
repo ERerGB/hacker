@@ -67,7 +67,9 @@ Then tell your agent:
 
 > *"Run hacker against my support_bot.md using corpus.md"*
 
-It enters an autonomous loop — diagnose, explore, mutate, verify — and logs every decision to a scratchpad you can audit after.
+It enters an optimization loop — diagnose, explore, mutate, verify — and logs every decision to a scratchpad you can audit after.
+
+**Continuous runs**: Hacker does not bundle a loop driver. Pair it with your environment's re-invocation mechanism (e.g. Cursor Ralph Loop on `.cursor/ralph/scratchpad.md`, Claude Code's loop, or a shell wrapper) so each automated turn executes **one** full Hacker cycle. See [SKILL.md — Integration with Iterative Loop Runners](SKILL.md#integration-with-iterative-loop-runners).
 
 ---
 

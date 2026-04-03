@@ -8,7 +8,7 @@ description: >
 license: MIT
 metadata:
   author: ERerGB
-  version: "0.2.0"
+  version: "0.2.1"
   tags: problem-driven, best-practices, evidence-driven, optimization, agent-evolution
 ---
 
@@ -308,11 +308,54 @@ Track all state in a single scratchpad file:
 
 ## Integration with Iterative Loop Runners
 
-Set up a single scratchpad path managed by your environment (for example:
-`.agent-runner/scratchpad.md`).
-Each iteration drives one Hacker cycle:
+Hacker does **not** ship a Ralph Loop plugin, a Claude `/loop` binding, or any
+executable loop driver. The skill defines **what one cycle does**; your IDE or
+CLI provides **what re-invokes the agent** after each turn.
 
-1. Read scratchpad (candidate version, previous scores).
+**Contract**: one external iteration = exactly one Hacker cycle (steps 1–10).
+The scratchpad is the durable state between invocations. The loop runner only
+needs to feed the same high-level instruction back until `completion_promise`
+is satisfied or `max_iterations` is hit.
+
+### Cursor — Ralph Loop
+
+If you use Cursor's **Ralph Loop** skill (or any runner that maintains
+`.cursor/ralph/scratchpad.md` and re-posts your task each turn):
+
+1. Create `.cursor/ralph/` and initialize `scratchpad.md` with YAML frontmatter:
+   - `iteration`, `max_iterations`, `completion_promise` (per Ralph Loop skill)
+   - Body: your task, e.g. *"Run one Hacker cycle on candidate X with corpus Y;
+     read prior state from this file; append cycle log; stop when [promise]."*
+2. Each Ralph iteration re-posts the task; the agent reads the scratchpad,
+   executes one full cycle, updates scores and cycle log, increments iteration.
+3. Align `completion_promise` with Hacker stop rules (e.g. all stage gates green,
+   or weighted narrative score ≥ target for doc-only runs).
+
+Default scratchpad path in this repo for narrative experiments:
+`.cursor/ralph/scratchpad.md` (optional; any path works if you reference it in
+the task).
+
+### Claude Code, Codex, and other environments
+
+Use whatever mechanism **re-sends the same instruction** each turn with fresh
+context (e.g. Claude Code loop commands, a custom slash command, or a thin
+wrapper script that appends "continue from scratchpad" to stdin).
+
+Requirements:
+
+- Same scratchpad file path every time (or path passed in the prompt).
+- The prompt must say: read scratchpad → run one Hacker cycle → write results
+  back → if stop conditions met, output the completion token your runner expects.
+
+### Headless / CI (optional)
+
+A shell loop can call your agent CLI with a fixed prompt file that includes
+"read `hacker-scratchpad.md`, run one cycle, exit." That is the same contract
+without IDE integration.
+
+### Per-iteration checklist (all runners)
+
+1. Read scratchpad (candidate version, prior scores, cycle history).
 2. Run full corpus (isolated workers).
 3. Verify isolation.
 4. Score outputs.
@@ -321,7 +364,7 @@ Each iteration drives one Hacker cycle:
 7. Select best-fit evidence.
 8. Apply one mutation.
 9. Re-run full corpus.
-10. Accept or rollback; update scratchpad.
+10. Accept or rollback; update scratchpad (and bump loop `iteration` if using Ralph frontmatter).
 
 ---
 
