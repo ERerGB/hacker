@@ -7,31 +7,36 @@
  * The core loop is fixed (run → score → diagnose → explore → select → mutate → rerun → decide).
  * Everything below configures the *policy* within that loop.
  *
- * Dependency: candidates are `.agent.md` files managed by subagent-harness.
- * See https://github.com/ERerGB/subagent-harness
+ * Dependency: candidates are `.agent.md` files managed by [subagent-harness](https://www.npmjs.com/package/subagent-harness).
+ * Install: `pnpm install` / `npm install` in this repo root, then import from this file or from `subagent-harness` directly.
  */
 
+import type { PatchOp, RuntimeTarget } from "subagent-harness";
+
 // ---------------------------------------------------------------------------
-// Re-exported Harness types used in the cycle
+// Re-exported harness types + APIs (single source of truth = npm package)
 // ---------------------------------------------------------------------------
 
-// These types come from `subagent-harness`. Declared here as structural
-// interfaces so Hacker's schema is self-contained and doesn't require
-// an npm dependency at the skill/config level.
+export type {
+  ExtensionValidator,
+  RichAgentDocument,
+  RichAgentFrontmatter,
+  PatchOp,
+  RuntimeTarget,
+  ValidateOptions,
+  ValidationIssue,
+  ValidationResult,
+} from "subagent-harness";
 
-export interface RichAgentDocument {
-  sourcePath: string;
-  frontmatter: { name: string; description: string; [key: string]: unknown };
-  body: string;
-  extensions: Record<string, unknown>;
-}
-
-export interface PatchOp {
-  path: string;
-  value: unknown;
-}
-
-export type RuntimeTarget = "cursor" | "claude-code" | "production";
+export {
+  composeSubagent,
+  parseRichAgentMarkdown,
+  patchAgent,
+  serializeAgent,
+  serializeExtensions,
+  SUPPORTED_SCHEMA_VERSIONS,
+  validateRichAgent,
+} from "subagent-harness";
 
 // ---------------------------------------------------------------------------
 // Top-level config

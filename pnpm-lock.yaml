@@ -1,0 +1,44 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      subagent-harness:
+        specifier: ^0.4.0
+        version: 0.4.0
+    devDependencies:
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.3
+
+packages:
+
+  subagent-harness@0.4.0:
+    resolution: {integrity: sha512-A/61KyMjeWotgbnVdUAdT8acmuwb5zk7HRuqRRACZuanZdk134QvUXbDMb2u2lFNstJQZIkh4tVSGXlDJTDEeA==}
+    engines: {node: '>=20'}
+    hasBin: true
+
+  typescript@5.9.3:
+    resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
+    engines: {node: '>=14.17'}
+    hasBin: true
+
+  yaml@2.8.3:
+    resolution: {integrity: sha512-AvbaCLOO2Otw/lW5bmh9d/WEdcDFdQp2Z2ZUH3pX9U2ihyUY0nvLv7J6TrWowklRGPYbB/IuIMfYgxaCPg5Bpg==}
+    engines: {node: '>= 14.6'}
+    hasBin: true
+
+snapshots:
+
+  subagent-harness@0.4.0:
+    dependencies:
+      yaml: 2.8.3
+
+  typescript@5.9.3: {}
+
+  yaml@2.8.3: {}

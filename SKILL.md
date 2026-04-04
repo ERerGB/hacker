@@ -67,8 +67,8 @@ The Run phase is a three-step pipeline:
 ```
 
 1. **Parse** — `parseRichAgentMarkdown(path, content)` → `RichAgentDocument`
-2. **Validate** — `validateRichAgent(doc)` → confirm schema integrity
-3. **Compose** — `composeSubagent(doc, target)` → runtime-ready artifact
+2. **Validate** — `validateRichAgent(doc, options?)` → confirm schema integrity (optional `extensionValidator` in `options` for `.agent.ext.yaml` fields; see `subagent-harness` `ValidateOptions`)
+3. **Compose** — `composeSubagent(doc, target, profile?)` → runtime-ready artifact (`target`: `cursor` | `codex` | `claude-code` | `production`)
 4. **Dispatch** — send the composed artifact to N isolated workers (one per test case)
 
 Worker dispatch shape:
@@ -171,7 +171,7 @@ Supported patch paths:
 - `extensions.*` — consumer-defined metadata (e.g. evolution state)
 
 After patching:
-1. **Validate** — `validateRichAgent(mutatedDoc)` to confirm the mutation didn't break schema
+1. **Validate** — `validateRichAgent(mutatedDoc, options?)` to confirm the mutation didn't break schema
 2. **Serialize** — `serializeAgent(mutatedDoc)` to write back the updated `.agent.md`
 3. **Record** — what changed, why, which evidence supported it
 
@@ -237,7 +237,7 @@ A configuration defines:
 
 | Section | What you configure | Example |
 |---------|--------------------|---------|
-| `candidate` | Source `.agent.md` path and compose target | `{path: "agents/bot.agent.md", target: "runtime-default"}` |
+| `candidate` | Source `.agent.md` path and compose target | `{path: "agents/bot.agent.md", target: "cursor"}` |
 | `evaluation` | Scoring dimensions, weights, hard checks | `{recall: 0.4, precision: 0.3, quality: 0.3}` |
 | `explore` | Search providers, budget, evidence schema | `{providers: ["web", "lobehub"], topK: 5}` |
 | `mutation` | Available mutators, evidence requirement | `{requireEvidenceLink: true}` |
@@ -246,7 +246,7 @@ A configuration defines:
 | `guards` | Global invariants | `{maxMutationsPerCycle: 1, fullCorpusRerun: true}` |
 
 See [references/config-schema.ts](references/config-schema.ts) for the full
-TypeScript interface. Drop a `hacker.config.ts` (or `.yaml`/`.json`) in your
+TypeScript interface (re-exports `subagent-harness` types and APIs; run `pnpm install` or `npm install` in the Hacker repo root for typecheck). Drop a `hacker.config.ts` (or `.yaml`/`.json`) in your
 project root to override defaults.
 
 Default profiles are provided as **examples**, not as canonical truth:

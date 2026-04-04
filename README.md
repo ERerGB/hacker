@@ -103,7 +103,12 @@ You configure:
 - **Acceptance**: gate thresholds, regression tolerance
 - **Stages**: optional phased curriculum (e.g., recall → precision → quality → pruning)
 
-See [references/config-schema.ts](references/config-schema.ts) for the TypeScript interface.
+See [references/config-schema.ts](references/config-schema.ts) for the TypeScript interface. It re-exports types and APIs from [`subagent-harness`](https://www.npmjs.com/package/subagent-harness) (`^0.4.0`) so prompts stay aligned with the published package.
+
+```bash
+cd hacker && pnpm install   # or npm install
+pnpm run typecheck
+```
 
 Default profiles are provided as **examples**:
 - [references/stages.md](references/stages.md) — a 5-stage curriculum
