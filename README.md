@@ -114,6 +114,13 @@ Default profiles are provided as **examples**:
 - [references/stages.md](references/stages.md) — a 5-stage curriculum
 - [references/mutations.md](references/mutations.md) — a 9-operator mutation menu
 
+### Composable sub-skills (for non-`.agent.md` candidates)
+
+If your candidate is a SKILL.md section, a config file, or anything scored by a script (not subagent-harness workers), use the extracted references directly:
+
+- [references/hacker-core.md](references/hacker-core.md) — 5-step cycle contract (no subagent-harness dependency)
+- [references/hacker-loop.md](references/hacker-loop.md) — Claude Code Agent template, Cursor Ralph, CI drivers
+
 ---
 
 ## Inspired By

@@ -5,11 +5,13 @@ description: >
   Problem-driven optimization engine for LLM prompts and agent configurations.
   Runs candidates against a test corpus, scores outputs, diagnoses failures,
   explores external evidence, and applies targeted single-variable mutations.
+  In Cursor, pair with the ralph-loop skill (/ralph-loop) so each chat turn runs
+  exactly one Hacker cycle until completion_promise or max_iterations.
 license: MIT
 metadata:
   author: ERerGB
-  version: "0.2.1"
-  tags: problem-driven, best-practices, evidence-driven, optimization, agent-evolution
+  version: "0.2.2"
+  tags: problem-driven, best-practices, evidence-driven, optimization, agent-evolution, ralph-loop
 ---
 
 # Hacker
@@ -33,6 +35,18 @@ regressed. One cycle, one variable, full accountability.
                                                                       ↓
                                                               accept / rollback
 ```
+
+## Sustaining many cycles (Cursor + Ralph Loop)
+
+Hacker defines **one** cycle (steps 1–10). It does **not** re-invoke itself.
+
+To **keep going** turn after turn until a stop rule fires, use Cursor’s **`ralph-loop`** skill (**`/ralph-loop`**) as the outer driver:
+
+1. Run **`/ralph-loop`** (or attach the **Ralph Loop** skill) and set `max_iterations` + optional `completion_promise` in `.cursor/ralph/scratchpad.md`.
+2. Put your **Hacker task** in the scratchpad **body** (corpus path, candidate path, scoring command). Instruct the agent: **each iteration = exactly one Hacker cycle** (one diagnosis, one mutation, full re-run, log) — see **Cursor — Ralph Loop** below for a paste-ready template.
+3. On every follow-up, Ralph replays the same prompt; the agent reads the scratchpad, runs the next cycle, appends **Cycle Log**, bumps `iteration` in YAML.
+
+If you skip Ralph Loop, you must **manually** send the same “run one Hacker cycle” instruction each time.
 
 ---
 
@@ -319,39 +333,50 @@ is satisfied or `max_iterations` is hit.
 
 ### Cursor — Ralph Loop
 
-If you use Cursor's **Ralph Loop** skill (or any runner that maintains
-`.cursor/ralph/scratchpad.md` and re-posts your task each turn):
+**Pairing**: **`hacker`** (this file) = the procedure for **one** cycle. **`ralph-loop`** = the mechanism that **re-sends** your task each turn. Invoke **`/ralph-loop`** first so the Ralph skill creates the scratchpad; then edit the body to be Hacker-specific.
 
-1. Create `.cursor/ralph/` and initialize `scratchpad.md` with YAML frontmatter:
-   - `iteration`, `max_iterations`, `completion_promise` (per Ralph Loop skill)
-   - Body: your task, e.g. *"Run one Hacker cycle on candidate X with corpus Y;
-     read prior state from this file; append cycle log; stop when [promise]."*
-2. Each Ralph iteration re-posts the task; the agent reads the scratchpad,
-   executes one full cycle, updates scores and cycle log, increments iteration.
-3. Align `completion_promise` with Hacker stop rules (e.g. all stage gates green,
+If you use Cursor's **Ralph Loop** (maintains `.cursor/ralph/scratchpad.md` and re-posts your task each turn):
+
+1. Create `.cursor/ralph/` and initialize `scratchpad.md` with YAML frontmatter (per **ralph-loop** skill): `iteration`, `max_iterations`, `completion_promise` (optional; quote if special chars).
+2. **Body — paste-ready Hacker template** (customize paths and stop rule):
+
+   ```markdown
+   Read the full file `.cursor/ralph/scratchpad.md` (YAML + body) before acting.
+
+   Run exactly **one** Hacker cycle per `~/.cursor/skills/hacker/SKILL.md` (steps 1–10):
+   - Candidate: <path to .agent.md or skill under test>
+   - Corpus: <path to gold / test cases>
+   - Run → Verify isolation → Score → Diagnose **single** worst case → Explore → **One** Mutate → Re-run full corpus → Decide → Log
+
+   At end of this turn:
+   - Append a `### Cycle <n>` block under `## Cycle Log` (diagnosis, evidence, mutation, before/after scores, decision, lesson).
+   - Update YAML `iteration` to `<n+1>` (or follow Ralph Loop conventions).
+
+   Stop: output the completion token required by `completion_promise` **only** when <e.g. corpus all green AND no open stage failures>.
+   ```
+
+3. Each Ralph iteration re-posts the task; the agent reads the scratchpad,
+   executes **one** full Hacker cycle, updates scores and cycle log, bumps iteration.
+4. Align `completion_promise` with Hacker stop rules (e.g. all stage gates green,
    or weighted narrative score ≥ target for doc-only runs).
 
-Default scratchpad path in this repo for narrative experiments:
-`.cursor/ralph/scratchpad.md` (optional; any path works if you reference it in
-the task).
+Default scratchpad path: **`.cursor/ralph/scratchpad.md`** (project-local; any path works if the task names it explicitly).
 
-### Claude Code, Codex, and other environments
+### Claude Code — Agent + CronCreate
 
-Use whatever mechanism **re-sends the same instruction** each turn with fresh
-context (e.g. Claude Code loop commands, a custom slash command, or a thin
-wrapper script that appends "continue from scratchpad" to stdin).
+Use the **Agent tool** (subagent) for cycle isolation and **CronCreate** for sustained iteration. Each cron fire launches a fresh subagent that reads the corpus, runs one cycle, and returns a one-line summary — no scratchpad needed (stateless).
 
-Requirements:
+See **[references/hacker-loop.md](references/hacker-loop.md)** for the full Agent prompt template and setup instructions.
 
-- Same scratchpad file path every time (or path passed in the prompt).
-- The prompt must say: read scratchpad → run one Hacker cycle → write results
-  back → if stop conditions met, output the completion token your runner expects.
+Quick setup: `/loop 10m /hacker <domain>` — creates a cron that delegates each cycle to a subagent.
 
 ### Headless / CI (optional)
 
 A shell loop can call your agent CLI with a fixed prompt file that includes
 "read `hacker-scratchpad.md`, run one cycle, exit." That is the same contract
 without IDE integration.
+
+See **[references/hacker-loop.md](references/hacker-loop.md)** for all three runtimes.
 
 ### Per-iteration checklist (all runners)
 
@@ -368,6 +393,20 @@ without IDE integration.
 
 ---
 
+## Composable Sub-Skills
+
+For domains that **don't need subagent-harness** (e.g. the candidate is a SKILL.md section scored by a script, not an `.agent.md` dispatched to N workers), use the extracted references:
+
+| Reference | What it covers | When to use |
+| --- | --- | --- |
+| **[hacker-core.md](references/hacker-core.md)** | 5-step cycle contract (score → diagnose → mutate → re-run → log), invariants, stop conditions | Domain skills that compose with hacker but skip worker dispatch |
+| **[hacker-loop.md](references/hacker-loop.md)** | Claude Code Agent template, Cursor Ralph, CI loop drivers | Sustaining cycles across any runtime |
+| **[corpus-format.md](references/corpus-format.md)** | Corpus design, golden labels, worker output schema | Bootstrapping a new test corpus |
+
+**Full SKILL.md** (this file) remains the canonical reference for `.agent.md` candidates with subagent-harness integration.
+
+---
+
 ## When to Use This
 
 - A prompt works on demos but fails on edge cases.
@@ -375,6 +414,7 @@ without IDE integration.
 - You need evidence that version A is better than version B.
 - You want to find the minimal prompt that still performs well.
 - You want mutations grounded in external evidence, not intuition.
+- You want **many** sequential cycles without pasting the same prompt each time → start **`/ralph-loop`** and put the Hacker task + corpus paths in `.cursor/ralph/scratchpad.md` (see **Sustaining many cycles** above).
 
 ---
 
