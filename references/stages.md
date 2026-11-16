@@ -3,7 +3,9 @@
 > This is an **example** stage configuration, not a core protocol requirement.
 > Copy and adapt for your project. See [config-schema.ts](config-schema.ts) for the interface.
 
-Use stages as **gates**, not as narrative docs. Stay on a stage until stable.
+Use stages as **gates**, not as narrative docs. Advance only after stability;
+stop at the [core budget or no-improvement limit](hacker-core.md#stop-conditions)
+even when the current stage has not passed. A stage does not reset that budget.
 
 ## Stability Rule
 
