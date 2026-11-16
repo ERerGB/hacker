@@ -177,12 +177,15 @@ export interface StageConfig {
 
 // ---------------------------------------------------------------------------
 // Guards — global invariants
+// These types describe policy; a runner must enforce it. Before execution,
+// resolve a finite cycle/resource budget and no-improvement limit even when
+// optional config fields are omitted. This file does not implement a loop driver.
 // ---------------------------------------------------------------------------
 
 export interface GuardConfig {
-  maxMutationsPerCycle: 1; // enforced at runtime, not configurable
-  fullCorpusRerun: true; // enforced at runtime, not configurable
-  workerIsolation: true; // enforced at runtime, not configurable
+  maxMutationsPerCycle: 1; // runner must enforce, not configurable
+  fullCorpusRerun: true; // runner must enforce, not configurable
+  workerIsolation: true; // runner must enforce, not configurable
   maxCyclesBeforeStop?: number; // circuit breaker
   maxCyclesWithoutImprovement?: number; // early stopping
 }

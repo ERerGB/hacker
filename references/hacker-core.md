@@ -17,7 +17,7 @@ Extracted from `SKILL.md` for composable use. Domain skills that don't need suba
 
 Violation of any invariant invalidates the cycle.
 
-- **One mutation per cycle.** Either extend the candidate one change, or fix one corpus/scoring issue — not both unless they are the same hypothesis.
+- **One behavioral mutation per cycle.** Either extend the candidate one change, or fix one corpus/scoring issue — not both unless they are the same hypothesis. Recording scores, state and the cycle log is bookkeeping, not another behavioral mutation.
 - **Full re-run after every mutation.** The entire corpus must be scored after each change. No partial checks.
 - **Accept requires no regression.** A change that fixes one case but breaks another is rejected.
 - **Corpus is the contract.** Golden labels are append-only unless a case was wrongly labeled (then fix gold + log lesson).
@@ -74,7 +74,13 @@ The log location is **project-configured** — a markdown table, a JSONL file, a
 
 ## Stop conditions
 
-The candidate is done when **all** of:
+Before starting, set a finite cycle/resource budget, a no-improvement limit and
+an invocation deadline. Stop on the first exhausted limit, execution failure or
+missing required access. Preserve the best verified candidate, scores and history;
+report unmet goals instead of looping indefinitely. These limits apply when this
+reference is invoked without the parent skill. See [driver contract](hacker-loop.md).
+
+Within those limits, the candidate is done when **all** of:
 - Corpus passes with no failures.
 - No coverage gap remains (all known patterns have golden rows).
 - No clarity gap remains (no ambiguous labels that should be resolved).

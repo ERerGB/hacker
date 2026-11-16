@@ -1,7 +1,9 @@
 # Extensions
 
 Reserved extension points. Each is independent — activate only when
-the base loop proves insufficient for your specific problem.
+the base loop proves insufficient for your specific problem. All extensions keep
+the [core budget, logging and full-corpus contract](hacker-core.md); they do not
+authorize extra unbounded cycles or bypass acceptance checks.
 
 ## EXT-1: Mutation-Prompt Co-Evolution
 
@@ -44,7 +46,9 @@ Based on: EvoSkill (arXiv 2603.02766) — Pareto frontier for agent program sele
 **Signal**: A mutation causes catastrophic regression (>2.0 drop on any test case).
 
 Before running full epoch, test mutation on 2 cases (one positive, one negative).
-If either drops >1.5: abort without running full epoch.
+If either drops >1.5: reject the candidate early, restore the accepted baseline,
+and run the full corpus to verify the rollback. A passing canary still requires
+the full corpus before acceptance; it never substitutes for that verification.
 
 Based on: Capability Evolver — canary deployment for prompt mutations.
 
