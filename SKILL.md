@@ -46,7 +46,7 @@ To **keep going** turn after turn until a stop rule fires, use Cursor’s **`ral
 2. Put your **Hacker task** in the scratchpad **body** (corpus path, candidate path, scoring command). Instruct the agent: **each iteration = exactly one Hacker cycle** (one diagnosis, one mutation, full re-run, log) — see **Cursor — Ralph Loop** below for a paste-ready template.
 3. On every follow-up, Ralph replays the same prompt; the agent reads the scratchpad, runs the next cycle, appends **Cycle Log**, bumps `iteration` in YAML.
 
-If you skip Ralph Loop, you must **manually** send the same “run one Hacker cycle” instruction each time.
+Use only a loop driver actually available in the current host. A bounded sequence can also run in the current task; neither Ralph Loop nor a scheduled job is required. Preserve the candidate, scores and cycle history between iterations.
 
 ---
 
@@ -192,7 +192,7 @@ After patching:
 Constraints:
 - The mutation must link to at least one Evidence Card (when Explore is enabled).
 - Do not bundle unrelated improvements.
-- One `patchAgent()` call per cycle.
+- One behavioral mutation per cycle. Recording bookkeeping under `extensions.evolution` is separate; do not count that metadata write as a second prompt change or let it change the evaluated behavior.
 
 ### 8. Re-run
 
@@ -364,11 +364,11 @@ Default scratchpad path: **`.cursor/ralph/scratchpad.md`** (project-local; any p
 
 ### Claude Code — Agent + CronCreate
 
-Use the **Agent tool** (subagent) for cycle isolation and **CronCreate** for sustained iteration. Each cron fire launches a fresh subagent that reads the corpus, runs one cycle, and returns a one-line summary — no scratchpad needed (stateless).
+When the installed Claude Code runtime exposes them, its **Agent tool** can provide isolation and its loop facilities can drive explicitly requested recurring work. Inspect current capabilities before using platform-specific commands. Each invocation may use a fresh subagent, but the candidate revision, accepted baseline, scores and cycle history must persist in task-owned state. The runner must resume from that record; a fresh context is not a stateless optimization loop.
 
 See **[references/hacker-loop.md](references/hacker-loop.md)** for the full Agent prompt template and setup instructions.
 
-Quick setup: `/loop 10m /hacker <domain>` — creates a cron that delegates each cycle to a subagent.
+For explicitly requested recurring work, consult the installed runtime's loop interface. Do not create a recurring job merely to follow a finite optimization task to completion.
 
 ### Headless / CI (optional)
 
@@ -420,7 +420,9 @@ For domains that **don't need subagent-harness** (e.g. the candidate is a SKILL.
 
 ## When to Stop
 
-The candidate is done when ALL of:
+Before starting, set a finite cycle or resource budget and a no-improvement limit. Stop on that limit, repeated execution failure, or missing required access; preserve the best verified candidate and report unmet goals. Do not keep spending resources until a quality target eventually passes.
+
+Within those bounds, the candidate meets the configured quality target when ALL of:
 - Configured stage gates passed with stable scores.
 - Pruning completed (if configured).
 - No test case below configured floor on any dimension.
