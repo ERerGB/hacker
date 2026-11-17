@@ -1,7 +1,7 @@
 # Hacker Loop — sustained cycle drivers
 
 This reference extends [hacker-core](hacker-core.md) with optional runtime drivers.
-Follow the [main skill's stop conditions](../SKILL.md#stop-conditions) in every
+Follow the [main skill's stop conditions](../SKILL.md#when-to-stop) in every
 runtime. A finite optimization task can run in the current task; no recurring job
 or particular loop plugin is required.
 

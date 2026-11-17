@@ -3,6 +3,9 @@
 Local semantic bootstrap: embed phrases via Ollama (e.g. bge-large), report
 within-axis redundancy and cross-axis orthogonality for narrative / search mix.
 
+The bundled phrases are an illustrative query corpus, not verified current facts
+or a generic task benchmark. Python 3.10+; --help never invokes the model.
+
 Narrative anchor (recommended): set a single "center story" so distances are not
 only pairwise between samples. Provide via:
 
@@ -17,6 +20,7 @@ those where BOTH ends stay aligned to the core (on-story shotgun, not random dri
 """
 from __future__ import annotations
 
+import argparse
 import json
 import math
 import os
@@ -25,6 +29,7 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from itertools import combinations
+from pathlib import Path
 
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
 DEFAULT_MODEL = os.environ.get("OLLAMA_EMBED_MODEL", "bge-large:latest")
@@ -45,39 +50,39 @@ def embed(model: str, text: str) -> list[float]:
             data = json.loads(resp.read())
     except urllib.error.URLError as e:
         raise SystemExit(f"Ollama unreachable at {url}: {e}") from e
-    emb = data.get("embedding")
-    if not emb:
-        raise SystemExit(f"Bad response from Ollama: {data}")
+    emb = data.get("embedding") if isinstance(data, dict) else None
+    validate_vector(emb)
     return emb
 
 
+def validate_vector(vector):
+    if (not isinstance(vector, list) or not vector
+            or any(type(x) not in (int, float) or not math.isfinite(x) for x in vector)):
+        raise ValueError("Embedding must be a nonempty list of finite numbers")
+    norm = math.hypot(*vector)
+    if norm == 0 or not math.isfinite(norm):
+        raise ValueError("Embedding must have a finite nonzero norm")
+    return norm
+
+
 def cosine(a: list[float], b: list[float]) -> float:
-    dot = sum(x * y for x, y in zip(a, b, strict=True))
-    na = math.sqrt(sum(x * x for x in a))
-    nb = math.sqrt(sum(y * y for y in b))
-    if na == 0 or nb == 0:
-        return 0.0
-    return dot / (na * nb)
+    na, nb = validate_vector(a), validate_vector(b)
+    if len(a) != len(b):
+        raise ValueError("Embedding dimensions must match")
+    # Normalize first to avoid overflowing intermediate products.
+    return max(-1.0, min(1.0, math.fsum((x / na) * (y / nb) for x, y in zip(a, b))))
 
 
 def parse_args(argv: list[str]) -> tuple[str, str | None]:
-    """Returns (model, narrative_core_text or None)."""
-    model = DEFAULT_MODEL
-    core: str | None = os.environ.get("NARRATIVE_CORE", "").strip() or None
-    args = list(argv)
-    if "--core-file" in args:
-        i = args.index("--core-file")
-        try:
-            path = args.pop(i + 1)
-            args.pop(i)
-        except IndexError:
-            raise SystemExit("--core-file requires a path") from None
-        core = open(path, encoding="utf-8").read().strip() or None
-    # Remaining: optional model as sole positional
-    pos = [a for a in args if not a.startswith("-")]
-    if pos:
-        model = pos[0]
-    return model, core
+    """Returns (model, narrative_core_text or None); help never contacts Ollama."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("model", nargs="?", default=DEFAULT_MODEL)
+    parser.add_argument("--core-file", type=Path)
+    args = parser.parse_args(argv)
+    core = os.environ.get("NARRATIVE_CORE", "").strip() or None
+    if args.core_file is not None:
+        core = args.core_file.read_text(encoding="utf-8").strip() or None
+    return args.model, core
 
 
 def main() -> None:
