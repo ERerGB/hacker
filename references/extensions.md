@@ -19,15 +19,20 @@ Based on: Promptbreeder (DeepMind) — dual-layer self-referential evolution.
 
 **Signal**: Prompt exceeds 15 instructions; unclear which ones contribute.
 
-Tag each instruction with a unique ID. Track which instructions are
-causally relevant to correct outputs across epochs.
+Tag instructions for an ablation experiment: remove one, rerun the agreed corpus,
+and compare against the unchanged baseline. Invocation frequency or a model’s
+self-report does not establish causal relevance. Unexercised failure-path rules
+may require new cases before any deletion is justified.
+
+The frequency bands below are screening hints, not causal estimates or deletion
+permission. Actual ablation and coverage decide whether a rule can change.
 
 | Level | Triggered in | Action |
 |-------|-------------|--------|
 | Vital | >60% of correct outputs | Protect |
 | Useful | 20-60% | Keep |
 | Dormant | <5% | Stage 5 deletion candidate |
-| Dead | 0% across 3 epochs | Delete |
+| Unobserved | 0% across 3 epochs | Investigate coverage; delete only after a justified ablation |
 
 Based on: Opus Agent `reflexion.ts` — self-observation of tool effectiveness.
 

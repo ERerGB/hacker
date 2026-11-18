@@ -20,6 +20,6 @@ Apply exactly one mutation per cycle.
 Rules:
 
 1. One mutation per iteration.
-2. Never use `M9` before Stage 5.
+2. Delete an instruction when a measured ablation supports it; a project may reserve pruning for a later stage, but there is no universal Stage 5 prerequisite.
 3. Record mutation reason and affected failing test.
-4. Reject mutation if any single test case drops more than `1.5`.
+4. Use the project’s fixed acceptance gates. `1.5` is an example soft-score tolerance, not a default permission to regress.

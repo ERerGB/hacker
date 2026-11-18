@@ -67,5 +67,5 @@ Goal: remove instructions with no measurable value.
 
 Gate:
 
-- Prompt length <= 80% of Stage 4
+- Optional project length target (for example <= 80% of Stage 4); do not delete useful requirements just to reach it
 - Equal or better score profile

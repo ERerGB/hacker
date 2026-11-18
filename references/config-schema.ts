@@ -1,10 +1,11 @@
 /**
- * Hacker Configuration Schema
+ * Hacker .agent.md Profile Configuration Schema
  *
  * Project-level configuration for the Hacker evolution engine.
  * Drop a `hacker.config.ts` (or .yaml/.json) in your project root.
  *
- * The core loop is fixed (run → score → diagnose → explore → select → mutate → rerun → decide).
+ * This optional harness profile configures model-worker evaluation; deterministic
+ * scorers can use hacker-core without this schema. Explore is conditional.
  * Everything below configures the *policy* within that loop.
  *
  * Dependency: candidates are `.agent.md` files managed by [subagent-harness](https://www.npmjs.com/package/subagent-harness).
