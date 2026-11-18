@@ -1,4 +1,10 @@
-# Test Corpus Format
+# Test corpus design
+
+Reuse the project’s existing input/gold/scorer contract. The layout, six-case mix,
+JSON and scoring table below are a classification/extraction example, not universal
+requirements. A bounded run can use a smaller existing set while reporting its
+coverage gaps. Add cases for actual failure modes; do not invent no-output cases
+for a task that always requires an answer.
 
 ## Directory Structure
 
@@ -39,18 +45,19 @@ Each file follows this structure:
 - quality_notes: [what makes a good vs mediocre output here]
 ```
 
-## Corpus Design Rules
+## Example classification/extraction coverage
 
-1. **Minimum 6 test cases** — fewer gives unreliable scores
+1. **Six varied cases as a starting example** — count alone does not establish reliability
 2. **At least 2 negative cases** (expected_outputs: 0) — prevents false-positive overfitting
 3. **At least 1 adversarial case** — input that looks like it should trigger but shouldn't
 4. **At least 1 high-density case** — input with many valid outputs
 5. **At least 1 needle-in-haystack** — long input with one subtle valid output
 6. **Diversity over volume** — 8 varied cases beat 20 similar ones
 
-## Worker Output Schema (Required)
+## Example worker output schema
 
-Workers must return structured output so the controller can score deterministically.
+Use this schema only if it matches the evaluated task. Otherwise preserve its actual
+output format and scorer; do not change the candidate’s deliverable to fit this example.
 
 ```json
 {

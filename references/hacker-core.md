@@ -9,9 +9,9 @@ Extracted from `SKILL.md` for composable use. Domain skills that don't need suba
 | **hacker-core** (this) | Invariants + one-cycle contract | Always |
 | **hacker-loop** | Outer driver per runtime (Claude Code Agent, Cursor Ralph) | When sustaining multiple cycles |
 | **hacker-corpus** | Corpus design + scoring contract (see `corpus-format.md`) | When bootstrapping a new corpus |
-| **hacker-worker** | subagent-harness dispatch for prompt/agent candidates (see `SKILL.md` steps 1-2) | Only when the candidate is an `.agent.md` file |
+| **hacker-worker** | Isolated model evaluation; optional subagent-harness composition (see [hacker-worker.md](hacker-worker.md)) | When outputs require model generation; harness only for `.agent.md` |
 
-**Domain example**: dictation = hacker-core + domain scorer (`pnpm dictation:corpus`). No hacker-worker needed because the candidate is a SKILL.md section, not a prompt agent.
+**Domain example**: dictation = hacker-core + domain scorer (`pnpm dictation:corpus`). No hacker-worker is needed because the existing deterministic scorer evaluates the artifact directly. A SKILL.md candidate whose behavior requires model outputs still needs isolated model evaluation.
 
 ## Invariants
 
@@ -19,7 +19,7 @@ Violation of any invariant invalidates the cycle.
 
 - **One behavioral mutation per cycle.** Either extend the candidate one change, or fix one corpus/scoring issue — not both unless they are the same hypothesis. Recording scores, state and the cycle log is bookkeeping, not another behavioral mutation.
 - **Full re-run after every mutation.** The entire corpus must be scored after each change. No partial checks.
-- **Accept requires no regression.** A change that fixes one case but breaks another is rejected.
+- **Accept uses fixed gates.** Default to no regression on previously passing cases. An explicitly configured soft-score tolerance may allow a bounded tradeoff; hard requirements still must pass. Never relax gates after seeing a candidate score.
 - **Corpus is the contract.** Golden labels are append-only unless a case was wrongly labeled (then fix gold + log lesson).
 - **Log every cycle.** Hypothesis, mutation, before/after, decision — even for rollbacks.
 
@@ -55,8 +55,9 @@ Record: what changed, why, which diagnosis motivated it.
 
 Score the full corpus again after the mutation. Same scorer, same corpus (plus any new rows from step 3).
 
-- If green: **accept**. New state becomes baseline.
-- If regression: **rollback**. Revert the mutation, log the failure reason.
+- If the diagnosed outcome improves and all fixed acceptance gates pass: **accept**. The new state becomes baseline.
+- Otherwise: **rollback**, log the reason, and verify the restored baseline against the full corpus.
+- A corpus/scorer correction changes the measurement contract: re-establish the baseline and do not claim its score change as candidate improvement.
 
 ### 5. Log
 
@@ -80,10 +81,9 @@ missing required access. Preserve the best verified candidate, scores and histor
 report unmet goals instead of looping indefinitely. These limits apply when this
 reference is invoked without the parent skill. See [driver contract](hacker-loop.md).
 
-Within those limits, the candidate is done when **all** of:
-- Corpus passes with no failures.
-- No coverage gap remains (all known patterns have golden rows).
-- No clarity gap remains (no ambiguous labels that should be resolved).
+Within those limits, completion means the agreed success criteria pass and no known
+material gap prevents that claim. Report untested cases and unresolved labels; do not
+claim exhaustive coverage or keep inventing work after the requested goal is met.
 
 ## Anti-patterns
 
@@ -94,4 +94,6 @@ Within those limits, the candidate is done when **all** of:
 
 ## Relationship to SKILL.md
 
-`SKILL.md` is the full 10-step cycle with subagent-harness integration (parse → validate → compose → dispatch → verify → score → diagnose → mutate → re-run → decide → log). This reference extracts the **scorer-agnostic core** (5 steps) for domains that don't use `.agent.md` candidates or N-worker dispatch.
+[The main skill](../SKILL.md) chooses the evaluator and scope. This reference is the
+scorer-agnostic core; [worker dispatch](hacker-worker.md) adds isolation and optional
+subagent-harness composition only for model-evaluated candidates.

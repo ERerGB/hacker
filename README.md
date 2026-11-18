@@ -2,7 +2,7 @@
 
 > **Define a problem. Aggregate all best practices. Hack it.**
 
-Drop this skill into Cursor. Your agent diagnoses prompt failures, searches the world for fixes, and applies them one at a time — with full regression protection. No guesswork.
+Use this skill for bounded, evidence-based iteration with an existing scorer or isolated model workers. It tests one change against the full agreed corpus and reports remaining limits.
 
 ---
 
@@ -16,7 +16,7 @@ The developer writes 8 test cases with expected outputs — including the all-ca
 
 > *"Run hacker against my classifier using corpus.md"*
 
-They walk away. When they come back, the scratchpad reads:
+Illustrative scenario, not a measured run: the scratchpad might read (URLs and scores below are placeholders):
 
 ```
 Cycle 3  ACCEPT  avg 6.2 → 7.1
@@ -69,11 +69,11 @@ Then tell your agent:
 
 It enters an optimization loop — diagnose, explore, mutate, verify — and logs every decision to a scratchpad you can audit after.
 
-**Continuous runs**: Hacker does not bundle a loop driver. Pair it with your environment's re-invocation mechanism (e.g. Cursor Ralph Loop on `.cursor/ralph/scratchpad.md`, Claude Code's loop, or a shell wrapper) so each automated turn executes **one** full Hacker cycle. See [SKILL.md — Integration with Iterative Loop Runners](SKILL.md#integration-with-iterative-loop-runners).
+**Continuous runs**: Hacker does not bundle a loop driver. Pair it with your environment's re-invocation mechanism (e.g. Cursor Ralph Loop on `.cursor/ralph/scratchpad.md`, Claude Code's loop, or a shell wrapper) so each automated turn executes **one** full Hacker cycle. A finite run can also stay in the current task. See [sustained drivers](references/hacker-loop.md).
 
 ---
 
-## The Cycle (10 Steps)
+## Model-worker profile (expanded phases)
 
 | Step | Phase | What happens |
 |------|-------|-------------|
@@ -88,7 +88,9 @@ It enters an optimization loop — diagnose, explore, mutate, verify — and log
 | 9 | **Decide** | Accept if improved, rollback if regressed |
 | 10 | **Log** | Record hypothesis, evidence, result, lesson |
 
-See [SKILL.md](SKILL.md) for the full executable protocol.
+Explore/Select are conditional on a real evidence gap or the configured experiment.
+See [SKILL.md](SKILL.md) for evaluator selection and fixed acceptance gates; use an
+existing deterministic scorer directly when model generation is unnecessary.
 
 ---
 
